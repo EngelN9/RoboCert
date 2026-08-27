@@ -6,6 +6,6 @@ __pycache__/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+.package-smoke/
 build/
 dist/
-

@@ -1,7 +1,6 @@
 * text=auto
-*.md text eol=lf
+*.md text eol=lf whitespace=-trailing-space
 *.py text eol=lf
 *.json text eol=lf
 *.toml text eol=lf
 *.yml text eol=lf
-

@@ -13,8 +13,9 @@ deterministically and cannot be rationalized around, unlike a written-only rule)
 Usable two ways:
   - as a Claude Code PreToolUse hook: reads the hook JSON payload from stdin,
     exits 2 (block) on a violation, 0 otherwise.
-  - standalone, for testing: `check_report_language.py <path-to-markdown-file>`,
-    same exit codes, human-readable output either way.
+  - standalone, for testing or CI: `check_report_language.py <path> [<path> ...]`,
+    where each path is a Markdown file or directory. Directories are checked
+    recursively. The command uses the same exit codes and readable output.
 """
 
 from __future__ import annotations
@@ -145,36 +146,64 @@ def extract_hook_payload() -> tuple[str, str] | None:
     return file_path, content
 
 
+def markdown_paths(arguments: list[str]) -> list[Path]:
+    """Expand standalone file/directory arguments into a stable Markdown file list."""
+
+    paths: list[Path] = []
+    for argument in arguments:
+        path = Path(argument)
+        if path.is_dir():
+            paths.extend(sorted(path.rglob("*.md")))
+        else:
+            paths.append(path)
+    return paths
+
+
+def check_report(file_path: str, content: str, claim_tiers: dict[str, str]) -> list[str]:
+    """Check one report-like path, preserving the hook's path scope."""
+
+    normalized_path = file_path.replace("\\", "/")
+    if REPORTS_PREFIX not in normalized_path:
+        return []
+    return find_violations(content, claim_tiers)
+
+
 def main() -> int:
     if len(sys.argv) > 1:
         # Standalone/test mode: never touch stdin, so this can't block waiting
         # for EOF on a stdin that's open but idle (e.g. under a shell harness).
-        file_path = sys.argv[1]
-        content = Path(file_path).read_text(encoding="utf-8")
-    else:
-        hook_payload = extract_hook_payload()
-        if hook_payload is None:
-            print(
-                "check_report_language: no input (expected hook JSON on stdin or a file path arg)"
+        paths = markdown_paths(sys.argv[1:])
+        claim_tiers = load_claim_tiers()
+        any_violations = False
+        for path in paths:
+            file_path = str(path)
+            violations = check_report(
+                file_path,
+                path.read_text(encoding="utf-8"),
+                claim_tiers,
             )
-            return 0
-        file_path, content = hook_payload
+            if violations:
+                any_violations = True
+                print(f"check_report_language: blocked write to {file_path}:", file=sys.stderr)
+                for violation in violations:
+                    print(f"  - {violation}", file=sys.stderr)
+            else:
+                print(f"check_report_language: {file_path} OK")
+        return 2 if any_violations else 0
 
-    normalized_path = file_path.replace("\\", "/")
-    if REPORTS_PREFIX not in normalized_path:
-        return 0  # not a reports/ write, nothing to check
+    hook_payload = extract_hook_payload()
+    if hook_payload is None:
+        print("check_report_language: no input (expected hook JSON on stdin or path args)")
+        return 0
+    file_path, content = hook_payload
+    violations = check_report(file_path, content, load_claim_tiers())
+    if not violations:
+        return 0  # not a reports/ write, or the report passed
 
-    claim_tiers = load_claim_tiers()
-    violations = find_violations(content, claim_tiers)
-
-    if violations:
-        print(f"check_report_language: blocked write to {file_path}:", file=sys.stderr)
-        for v in violations:
-            print(f"  - {v}", file=sys.stderr)
-        return 2  # PreToolUse: exit 2 blocks the tool call in Claude Code
-
-    print(f"check_report_language: {file_path} OK")
-    return 0
+    print(f"check_report_language: blocked write to {file_path}:", file=sys.stderr)
+    for violation in violations:
+        print(f"  - {violation}", file=sys.stderr)
+    return 2  # PreToolUse: exit 2 blocks the tool call in Claude Code
 
 
 if __name__ == "__main__":

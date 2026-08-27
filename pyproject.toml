@@ -30,6 +30,7 @@ robocert = "robocert.cli:main"
 [project.optional-dependencies]
 dev = [
   "build>=1.2",
+  "hatchling>=1.27",
   "hypothesis>=6.100",
   "jsonschema>=4.23",
   "mypy>=1.15",

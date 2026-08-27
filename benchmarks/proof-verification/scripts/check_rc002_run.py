@@ -7,7 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 
-RUN_ID = "RCMPVB-20260821-CROSS-X-RUN001"
+DEFAULT_RUN_ID = "RCMPVB-20260821-CROSS-X-RUN001"
 EXPECTED_VERSION = "0.2.0"
 MANIFEST_NAME = "manifest.sha256"
 REQUIRED_ALWAYS = {
@@ -80,12 +80,28 @@ def _artifact_paths(run_dir: Path) -> list[Path]:
     )
 
 
-def write_manifest(run_dir: Path) -> None:
+def _manifest_content(run_dir: Path) -> str:
     lines = [
         f"{_sha256(path)}  {path.relative_to(run_dir).as_posix()}"
         for path in _artifact_paths(run_dir)
     ]
-    (run_dir / MANIFEST_NAME).write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    return "\n".join(lines) + "\n"
+
+
+def write_manifest(run_dir: Path) -> None:
+    """Write an active run manifest, refusing every stopped-run write request."""
+
+    metadata_path = run_dir / "metadata.yaml"
+    if metadata_path.is_file():
+        state = _metadata(metadata_path).get("run_state", "")
+        if state.startswith("stopped_"):
+            raise RuntimeError(f"refusing to rewrite manifest for stopped run: {run_dir.name}")
+
+    manifest_path = run_dir / MANIFEST_NAME
+    content = _manifest_content(run_dir)
+    if manifest_path.is_file() and manifest_path.read_text(encoding="utf-8") == content:
+        return
+    manifest_path.write_text(content, encoding="utf-8", newline="\n")
 
 
 def _validate_manifest(run_dir: Path, errors: list[str]) -> None:
@@ -112,10 +128,11 @@ def _validate_manifest(run_dir: Path, errors: list[str]) -> None:
             errors.append(f"hash mismatch: {relative}")
 
 
-def validate(run_dir: Path) -> list[str]:
+def validate(run_dir: Path, expected_run_id: str | None = None) -> list[str]:
+    expected_run_id = expected_run_id or run_dir.name
     errors: list[str] = []
-    if run_dir.name != RUN_ID:
-        errors.append(f"run directory must be named {RUN_ID}")
+    if run_dir.name != expected_run_id:
+        errors.append(f"run directory must be named {expected_run_id}")
     for relative in sorted(REQUIRED_ALWAYS):
         if not (run_dir / relative).is_file():
             errors.append(f"missing required artifact: {relative}")
@@ -123,7 +140,7 @@ def validate(run_dir: Path) -> list[str]:
     metadata_path = run_dir / "metadata.yaml"
     if metadata_path.is_file():
         metadata = _metadata(metadata_path)
-        if metadata.get("run_id") != RUN_ID:
+        if metadata.get("run_id") != expected_run_id:
             errors.append("metadata run_id mismatch")
         if metadata.get("benchmark_version") != EXPECTED_VERSION:
             errors.append("metadata benchmark_version mismatch")
@@ -160,6 +177,8 @@ def validate(run_dir: Path) -> list[str]:
     scores_path = run_dir / "scores.json"
     if scores_path.is_file():
         scores = json.loads(scores_path.read_text(encoding="utf-8"))
+        if scores.get("run_id") != expected_run_id:
+            errors.append("scores.json run_id mismatch")
         if scores.get("run_scope") != "verification_only":
             errors.append("scores.json must say verification_only")
         if scores.get("scoring_status") != "not_applicable_no_gold_or_calibration_set":
@@ -236,6 +255,8 @@ def validate(run_dir: Path) -> list[str]:
     transform_path = run_dir / "transformation-manifest.json"
     if transform_path.is_file():
         transform = json.loads(transform_path.read_text(encoding="utf-8"))
+        if transform.get("run_id") != expected_run_id:
+            errors.append("transformation manifest run_id mismatch")
         if transform.get("mapping_status") != "withheld_outside_repository":
             errors.append("source mapping was not marked as withheld")
         entries = transform.get("entries", [])
@@ -260,19 +281,50 @@ def validate(run_dir: Path) -> list[str]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Validate one or all frozen RC-002 runs without modifying artifacts."
+    )
     parser.add_argument("--write-manifest", action="store_true")
+    parser.add_argument("--run-id")
+    parser.add_argument("--run-dir", type=Path)
+    parser.add_argument("--all-runs", action="store_true")
     args = parser.parse_args()
     repo_root = Path(__file__).resolve().parents[3]
-    run_dir = repo_root / "benchmarks" / "proof-verification" / "runs" / RUN_ID
-    if args.write_manifest:
-        write_manifest(run_dir)
-    errors = validate(run_dir)
-    if errors:
-        for error in errors:
-            print(f"ERROR: {error}")
+    runs_root = repo_root / "benchmarks" / "proof-verification" / "runs"
+
+    if args.all_runs and (args.run_id is not None or args.run_dir is not None):
+        parser.error("--all-runs cannot be combined with --run-id or --run-dir")
+    if args.all_runs:
+        targets = [(path, path.name) for path in sorted(runs_root.iterdir()) if path.is_dir()]
+        if not targets:
+            parser.exit(1, f"ERROR: no run directories found under {runs_root}\n")
+    else:
+        expected_run_id = args.run_id or (
+            args.run_dir.name if args.run_dir is not None else DEFAULT_RUN_ID
+        )
+        run_dir = (
+            args.run_dir.resolve() if args.run_dir is not None else runs_root / expected_run_id
+        )
+        targets = [(run_dir, expected_run_id)]
+
+    failed = False
+    for run_dir, expected_run_id in targets:
+        if args.write_manifest:
+            try:
+                write_manifest(run_dir)
+            except (OSError, RuntimeError) as error:
+                failed = True
+                print(f"ERROR [{expected_run_id}]: {error}")
+                continue
+        errors = validate(run_dir, expected_run_id)
+        if errors:
+            failed = True
+            for error in errors:
+                print(f"ERROR [{expected_run_id}]: {error}")
+            continue
+        print(f"OK: {expected_run_id} artifacts, isolation rules, and SHA-256 manifest")
+    if failed:
         raise SystemExit(1)
-    print(f"OK: {RUN_ID} artifacts, isolation rules, and SHA-256 manifest")
 
 
 if __name__ == "__main__":

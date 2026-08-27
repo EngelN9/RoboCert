@@ -10,7 +10,7 @@ Auditor edits: none
 ## Assessment
 
 The production safety boundary passed. The strongest supported public runtime
-result remained `UNKNOWN`; RC-003's exact refutation remained research evidence
+result remained `UNKNOWN`; RC-003's rational counterexample-backed refutation remained research evidence
 (`EX`), not a runtime `COUNTEREXAMPLE`.
 
 The auditor confirmed:

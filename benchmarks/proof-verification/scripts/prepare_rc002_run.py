@@ -7,15 +7,18 @@ run artifact.
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
+import re
 import secrets
 import tempfile
 from pathlib import Path
 from typing import Any
 
-RUN_ID = "RCMPVB-20260821-CROSS-X-RUN001"
+DEFAULT_RUN_ID = "RCMPVB-20260821-CROSS-X-RUN001"
 BENCHMARK_VERSION = "0.2.0"
+RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 NEUTRAL_HEADER = (
     "# Candidate proof\n\n"
     "This candidate addresses the frozen theorem in `task.md`. "
@@ -54,19 +57,38 @@ def _selected_body(text: str, start_marker: str, end_marker: str | None) -> tupl
 
 def _load_or_create_private_map(
     private_path: Path,
+    run_id: str,
     sources: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     if private_path.exists():
         loaded = json.loads(private_path.read_text(encoding="utf-8"))
-        if loaded.get("run_id") != RUN_ID:
+        if not isinstance(loaded, dict):
+            raise RuntimeError("private mapping must be a JSON object")
+        if loaded.get("run_id") != run_id:
             raise RuntimeError("private mapping run_id mismatch")
+        blind_labels = loaded.get("blind_labels")
+        if not isinstance(blind_labels, dict) or set(blind_labels) != {"P1", "P2"}:
+            raise RuntimeError("private mapping must contain exactly P1 and P2")
+        if set(blind_labels.values()) != set(sources):
+            raise RuntimeError("private mapping source aliases do not match current sources")
+        recorded_sources = loaded.get("sources")
+        if not isinstance(recorded_sources, dict):
+            raise RuntimeError("private mapping sources must be a JSON object")
+        for alias, source in sources.items():
+            recorded = recorded_sources.get(alias, {})
+            if not isinstance(recorded, dict):
+                raise RuntimeError(f"private mapping source entry is invalid: {alias}")
+            if recorded.get("source_document_sha256") != source["source_document_sha256"]:
+                raise RuntimeError(f"private mapping source hash mismatch: {alias}")
+            if recorded.get("source_line_range") != source["source_line_range"]:
+                raise RuntimeError(f"private mapping source range mismatch: {alias}")
         return loaded
 
     keys = tuple(sources)
     coin = secrets.randbelow(2)
     ordered = keys if coin == 0 else tuple(reversed(keys))
     mapping = {
-        "run_id": RUN_ID,
+        "run_id": run_id,
         "warning": "PRIVATE UNTIL BOTH BLIND AUDITS ARE FROZEN",
         "coin_flip": coin,
         "blind_labels": {
@@ -91,10 +113,17 @@ def _load_or_create_private_map(
     return mapping
 
 
-def prepare(repo_root: Path, private_root: Path) -> Path:
+def prepare(repo_root: Path, run_id: str, run_dir: Path, private_map_path: Path) -> Path:
+    """Prepare one new or byte-identical run without modifying source proofs."""
+
     repo_root = repo_root.resolve()
+    run_dir = run_dir.resolve()
+    private_map_path = private_map_path.resolve()
+    if RUN_ID_RE.fullmatch(run_id) is None:
+        raise ValueError("run_id must contain only letters, digits, dots, underscores, and hyphens")
+    if run_dir.name != run_id:
+        raise ValueError(f"run directory must be named {run_id}")
     benchmark_root = repo_root / "benchmarks" / "proof-verification"
-    run_dir = benchmark_root / "runs" / RUN_ID
     source_specs = (
         (
             "source-7f3a",
@@ -122,8 +151,7 @@ def prepare(repo_root: Path, private_root: Path) -> Path:
             "source_line_range": f"{first_line}-{last_line}",
         }
 
-    private_path = private_root.resolve() / f"{RUN_ID}-blinding-map.json"
-    private_map = _load_or_create_private_map(private_path, sources)
+    private_map = _load_or_create_private_map(private_map_path, run_id, sources)
 
     version = (benchmark_root / "VERSION").read_text(encoding="utf-8").strip()
     if version != BENCHMARK_VERSION:
@@ -167,7 +195,7 @@ def prepare(repo_root: Path, private_root: Path) -> Path:
         (
             json.dumps(
                 {
-                    "run_id": RUN_ID,
+                    "run_id": run_id,
                     "mapping_status": "withheld_outside_repository",
                     "entries": sorted(transform_entries, key=lambda item: item["blind_label"]),
                     "residual_leakage": [
@@ -200,7 +228,7 @@ def prepare(repo_root: Path, private_root: Path) -> Path:
     )
 
     metadata = (
-        f"""run_id: {RUN_ID}
+        f"""run_id: {run_id}
 benchmark: RC-MPVB
 benchmark_version: {BENCHMARK_VERSION}
 item_id: RC-002
@@ -210,13 +238,13 @@ run_state: ledger_codex_pending
 scoring_enabled: false
 gold_defect_inventory: none
 model_ranking: none
-codex_model: gpt-5.6-sol
-codex_reasoning_effort: ultra
-codex_context: fresh_no_fork
-codex_tool_access: available_but_prohibited_by_frozen_prompt
-codex_tool_hard_disable: unavailable_in_subagent_api
+codex_model: pending_execution_metadata
+codex_reasoning_effort: pending_execution_metadata
+codex_context: pending_fresh_session
+codex_tool_access: pending_execution_metadata
+codex_tool_hard_disable: pending_execution_metadata
 claude_model: pending_user_report
-pre_run_pytest_baseline: 82_passed
+pre_run_pytest_baseline: pending_execution_metadata
 rc002_tier_at_start: E1
 implementation_correspondence: pending_final_gate_confirmation
 """
@@ -230,7 +258,7 @@ source_mapping_disclosure: withheld_until_both_blind_audits_frozen
 
     scores = {
         "benchmark_version": BENCHMARK_VERSION,
-        "run_id": RUN_ID,
+        "run_id": run_id,
         "item_id": "RC-002",
         "track": "X",
         "run_scope": "verification_only",
@@ -250,7 +278,7 @@ source_mapping_disclosure: withheld_until_both_blind_audits_frozen
         (json.dumps(scores, indent=2, sort_keys=True) + "\n").encode("utf-8"),
     )
 
-    readme = f"""# {RUN_ID}
+    readme = f"""# {run_id}
 
 This is a single-item, verification-only RC-002 cross-provider run under
 RC-MPVB v0.2.0 and the v2 cross-verification protocol. It is not a scored
@@ -286,11 +314,46 @@ adjudications, implementation-correspondence gate, and run validation all pass.
 
 
 def main() -> None:
-    repo_root = Path(__file__).resolve().parents[3]
-    private_root = Path(tempfile.gettempdir()) / "robocert-rcmpvb-private"
-    run_dir = prepare(repo_root, private_root)
+    parser = argparse.ArgumentParser(
+        description="Prepare a new, blinded RC-002 verification-only run without overwrites."
+    )
+    parser.add_argument(
+        "--repo-root",
+        type=Path,
+        default=Path(__file__).resolve().parents[3],
+        help="RoboCert repository root (default: inferred from this script)",
+    )
+    parser.add_argument("--run-id", default=DEFAULT_RUN_ID)
+    parser.add_argument(
+        "--run-dir",
+        type=Path,
+        help="run artifact directory (default: benchmarks/proof-verification/runs/<run-id>)",
+    )
+    parser.add_argument(
+        "--private-map",
+        type=Path,
+        help="private P1/P2 map file outside the repository (default: system temp)",
+    )
+    args = parser.parse_args()
+
+    repo_root = args.repo_root.resolve()
+    run_id = str(args.run_id)
+    run_dir = (
+        args.run_dir.resolve()
+        if args.run_dir is not None
+        else repo_root / "benchmarks" / "proof-verification" / "runs" / run_id
+    )
+    private_map_path = (
+        args.private_map.resolve()
+        if args.private_map is not None
+        else Path(tempfile.gettempdir()) / "robocert-rcmpvb-private" / f"{run_id}-blinding-map.json"
+    )
+    try:
+        run_dir = prepare(repo_root, run_id, run_dir, private_map_path)
+    except (OSError, RuntimeError, ValueError) as error:
+        parser.exit(1, f"ERROR: {error}\n")
     print(f"prepared {run_dir}")
-    print("private blinding map stored outside repository")
+    print(f"private blinding map: {private_map_path}")
 
 
 if __name__ == "__main__":

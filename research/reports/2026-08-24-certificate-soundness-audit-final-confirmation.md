@@ -27,7 +27,7 @@ not mathematical proof.
   controls.
 - Production implementation and correspondence remain blocked until those
   research gates pass.
-- Exact workspace reproducibility remains blocked because the task forbids a
+- Workspace reproducibility remains blocked because the task forbids a
   commit and the live tree is largely untracked.
 
 This `PASS` applies only to the current fail-closed delivery and its truthful

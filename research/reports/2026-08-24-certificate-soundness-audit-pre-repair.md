@@ -14,7 +14,7 @@ pose-tolerance certification. The safety boundary itself passed: the production
 registry was empty, public `certify` and `check` returned `UNKNOWN`, and no public
 path could produce `CERTIFIED_FEASIBLE` or `CERTIFIED_INFEASIBLE`.
 
-The strongest supported runtime status was `UNKNOWN`. RC-003's exact refutation
+The strongest supported runtime status was `UNKNOWN`. RC-003's rational counterexample-backed refutation
 was research evidence (`EX`), not a runtime `COUNTEREXAMPLE` result.
 
 ## Passed boundaries

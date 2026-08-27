@@ -174,6 +174,7 @@ def previous_ledger_text() -> str | None:
             ["git", "show", f"HEAD:{LEDGER_PATH.as_posix()}"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=False,
         )
     except FileNotFoundError:
