@@ -51,7 +51,7 @@ python -m venv .venv
 
 # Windows PowerShell
 .venv/Scripts/python -m pip install -e ".[dev]"
-.venv/Scripts/python -m pytest --basetemp=.pytest_cache/windows-basetemp
+.venv/Scripts/python -m pytest --basetemp=.pytest-basetemp
 
 # POSIX shells
 .venv/bin/python -m pip install -e ".[dev]"

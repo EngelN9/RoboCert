@@ -36,7 +36,7 @@ jobs:
       - name: Install project
         run: python -m pip install -e ".[dev]"
       - name: Run tests
-        run: python -m pytest --basetemp=.pytest_cache/ci-basetemp
+        run: python -m pytest --basetemp=.pytest-basetemp
 
   quality:
     name: Static checks and package build

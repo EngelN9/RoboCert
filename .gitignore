@@ -5,6 +5,7 @@ __pycache__/
 .hypothesis/
 .mypy_cache/
 .pytest_cache/
+.pytest-basetemp/
 .ruff_cache/
 .package-smoke/
 build/
