@@ -1,0 +1,17 @@
+{
+  "provider": "OpenAI Codex",
+  "stage": "RC-002 blind audit P2",
+  "agent_id": "01a031d2-f9ca-7cf1-8157-2e3e9de24da1",
+  "nickname": "Russell",
+  "model_selection": "inherited_parent_default",
+  "exact_model_identifier": "not_exposed_by_multi_agent_completion",
+  "fresh_context": true,
+  "context_forked": false,
+  "proof_inputs": [
+    "P2"
+  ],
+  "other_proofs_visible": false,
+  "tool_hard_disable_available": false,
+  "tool_use": "prohibited_by_prompt_not_platform_enforced",
+  "observable_output_sha256": "0cbd6d4cffecef9a066f7da39ca83c599bf7bb6d881a6577df76ac3bf64a9987"
+}

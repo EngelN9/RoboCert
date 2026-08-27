@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://robocert.dev/schemas/0.1.0/certificate.schema.json",
+  "title": "RoboCert Candidate Certificate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "certificate_id",
+    "family",
+    "conclusion",
+    "claim_hash",
+    "model_hash",
+    "assumption_ids",
+    "checker_id",
+    "checker_version",
+    "arithmetic_mode",
+    "payload",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "certificate_id": { "$ref": "#/$defs/nonemptyString" },
+    "family": { "$ref": "#/$defs/nonemptyString" },
+    "conclusion": { "enum": ["feasible", "infeasible"] },
+    "claim_hash": { "$ref": "#/$defs/digest" },
+    "model_hash": { "$ref": "#/$defs/digest" },
+    "assumption_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonemptyString" }
+    },
+    "checker_id": { "$ref": "#/$defs/nonemptyString" },
+    "checker_version": { "$ref": "#/$defs/nonemptyString" },
+    "arithmetic_mode": { "$ref": "#/$defs/nonemptyString" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+    },
+    "provenance": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/provenance" }
+    }
+  },
+  "$defs": {
+    "nonemptyString": { "type": "string", "minLength": 1 },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "artifact_hash", "description"],
+      "properties": {
+        "source_id": { "$ref": "#/$defs/nonemptyString" },
+        "artifact_hash": { "$ref": "#/$defs/digest" },
+        "description": { "$ref": "#/$defs/nonemptyString" }
+      }
+    },
+    "jsonValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "integer" },
+        { "type": "string" },
+        {
+          "type": "array",
+          "items": { "$ref": "#/$defs/jsonValue" }
+        },
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+        }
+      ]
+    }
+  }
+}
+

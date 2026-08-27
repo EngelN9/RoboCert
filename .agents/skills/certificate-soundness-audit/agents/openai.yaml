@@ -1,0 +1,4 @@
+interface:
+  display_name: "Certificate Soundness Audit"
+  short_description: "Audit certificates and certification claims"
+  default_prompt: "Use $certificate-soundness-audit to independently audit this RoboCert certificate or certification result for mathematical soundness."

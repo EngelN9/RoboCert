@@ -1,0 +1,297 @@
+"""Prepare the frozen, blinded RC-002 verification-only run.
+
+The source-to-blind-label map is intentionally written outside the repository.
+This script never edits either source proof and refuses to overwrite a differing
+run artifact.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import secrets
+import tempfile
+from pathlib import Path
+from typing import Any
+
+RUN_ID = "RCMPVB-20260821-CROSS-X-RUN001"
+BENCHMARK_VERSION = "0.2.0"
+NEUTRAL_HEADER = (
+    "# Candidate proof\n\n"
+    "This candidate addresses the frozen theorem in `task.md`. "
+    "Audit only its mathematical content.\n\n"
+)
+
+
+def _sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _write_new(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        existing = path.read_bytes()
+        if existing != data:
+            raise RuntimeError(f"refusing to overwrite differing artifact: {path}")
+        return
+    path.write_bytes(data)
+
+
+def _selected_body(text: str, start_marker: str, end_marker: str | None) -> tuple[str, int, int]:
+    lines = text.splitlines()
+    start = next(index for index, line in enumerate(lines) if line.startswith(start_marker))
+    if end_marker is None:
+        end = len(lines)
+    else:
+        end = next(
+            index
+            for index, line in enumerate(lines[start + 1 :], start + 1)
+            if line.startswith(end_marker)
+        )
+    body = "\n".join(lines[start:end]).rstrip() + "\n"
+    return body, start + 1, end
+
+
+def _load_or_create_private_map(
+    private_path: Path,
+    sources: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    if private_path.exists():
+        loaded = json.loads(private_path.read_text(encoding="utf-8"))
+        if loaded.get("run_id") != RUN_ID:
+            raise RuntimeError("private mapping run_id mismatch")
+        return loaded
+
+    keys = tuple(sources)
+    coin = secrets.randbelow(2)
+    ordered = keys if coin == 0 else tuple(reversed(keys))
+    mapping = {
+        "run_id": RUN_ID,
+        "warning": "PRIVATE UNTIL BOTH BLIND AUDITS ARE FROZEN",
+        "coin_flip": coin,
+        "blind_labels": {
+            "P1": ordered[0],
+            "P2": ordered[1],
+        },
+        "sources": {
+            alias: {
+                "repository_path": str(source["path"]),
+                "source_document_sha256": source["source_document_sha256"],
+                "source_line_range": source["source_line_range"],
+            }
+            for alias, source in sources.items()
+        },
+    }
+    private_path.parent.mkdir(parents=True, exist_ok=True)
+    private_path.write_text(
+        json.dumps(mapping, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    return mapping
+
+
+def prepare(repo_root: Path, private_root: Path) -> Path:
+    repo_root = repo_root.resolve()
+    benchmark_root = repo_root / "benchmarks" / "proof-verification"
+    run_dir = benchmark_root / "runs" / RUN_ID
+    source_specs = (
+        (
+            "source-7f3a",
+            repo_root / "research" / "proofs" / "planar-2r-exact-witness-proof-p1.md",
+            "## Theorem",
+            None,
+        ),
+        (
+            "source-c91d",
+            repo_root / "research" / "proofs" / "planar-2r-exact-witness-proof-p2.md",
+            "## 1. Data, hypotheses, and the geometric problem",
+            "## 11. Soundness and relative completeness",
+        ),
+    )
+
+    sources: dict[str, dict[str, Any]] = {}
+    for alias, path, start_marker, end_marker in source_specs:
+        raw = path.read_bytes()
+        body, first_line, last_line = _selected_body(raw.decode("utf-8"), start_marker, end_marker)
+        sources[alias] = {
+            "path": path,
+            "source_document_sha256": _sha256(raw),
+            "selected_body": body,
+            "selected_body_sha256": _sha256(body.encode("utf-8")),
+            "source_line_range": f"{first_line}-{last_line}",
+        }
+
+    private_path = private_root.resolve() / f"{RUN_ID}-blinding-map.json"
+    private_map = _load_or_create_private_map(private_path, sources)
+
+    version = (benchmark_root / "VERSION").read_text(encoding="utf-8").strip()
+    if version != BENCHMARK_VERSION:
+        raise RuntimeError(f"benchmark VERSION is {version!r}, expected {BENCHMARK_VERSION!r}")
+
+    frozen_sources = {
+        "task.md": benchmark_root / "items" / "public" / "RC-002" / "task.md",
+        "ledger-prompt-v2.md": benchmark_root / "prompts" / "ledger-v2.md",
+        "blind-audit-prompt-v2.md": benchmark_root / "prompts" / "blind-audit-v2.md",
+        "adjudication-prompt-v2.md": benchmark_root / "prompts" / "adjudication-v2.md",
+        "claude-handoff-rules-v2.md": benchmark_root / "prompts" / "claude-handoff-v2.md",
+    }
+    for destination_name, source_path in frozen_sources.items():
+        _write_new(run_dir / "frozen" / destination_name, source_path.read_bytes())
+    _write_new(run_dir / "frozen" / "VERSION", b"0.2.0\n")
+
+    transform_entries: list[dict[str, Any]] = []
+    for blind_label, alias in private_map["blind_labels"].items():
+        source = sources[alias]
+        packet = (NEUTRAL_HEADER + source["selected_body"]).encode("utf-8")
+        destination = run_dir / "inputs" / f"proof-{blind_label.lower()}.md"
+        _write_new(destination, packet)
+        transform_entries.append(
+            {
+                "blind_label": blind_label,
+                "source_alias": alias,
+                "source_document_sha256": source["source_document_sha256"],
+                "source_line_range": source["source_line_range"],
+                "selected_body_sha256": source["selected_body_sha256"],
+                "blinded_packet_sha256": _sha256(packet),
+                "transformations": [
+                    "selected declared RC-002 core line range",
+                    "removed source title and attribution-bearing preamble",
+                    "prepended the common neutral header",
+                    "performed no mathematical-symbol normalization",
+                ],
+            }
+        )
+    _write_new(
+        run_dir / "transformation-manifest.json",
+        (
+            json.dumps(
+                {
+                    "run_id": RUN_ID,
+                    "mapping_status": "withheld_outside_repository",
+                    "entries": sorted(transform_entries, key=lambda item: item["blind_label"]),
+                    "residual_leakage": [
+                        "authorial prose style remains visible",
+                        "section numbering and proof length remain visible",
+                        "notation was not normalized because doing so could change semantics",
+                    ],
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode("utf-8"),
+    )
+
+    task = (run_dir / "frozen" / "task.md").read_text(encoding="utf-8")
+    ledger_prompt = (run_dir / "frozen" / "ledger-prompt-v2.md").read_text(encoding="utf-8")
+    ledger_packet = (
+        "# Session L — theorem intake packet\n\n"
+        "Execution condition: fresh context, no tools, no repository access, and no prior "
+        "proof or audit text. Return the complete observable response only.\n\n"
+        "## Frozen instructions\n\n"
+        f"{ledger_prompt.rstrip()}\n\n"
+        "## Frozen theorem\n\n"
+        f"{task.rstrip()}\n"
+    )
+    _write_new(
+        run_dir / "handoff" / "claude-ledger-packet.md",
+        ledger_packet.encode("utf-8"),
+    )
+
+    metadata = (
+        f"""run_id: {RUN_ID}
+benchmark: RC-MPVB
+benchmark_version: {BENCHMARK_VERSION}
+item_id: RC-002
+track: X
+run_scope: verification_only
+run_state: ledger_codex_pending
+scoring_enabled: false
+gold_defect_inventory: none
+model_ranking: none
+codex_model: gpt-5.6-sol
+codex_reasoning_effort: ultra
+codex_context: fresh_no_fork
+codex_tool_access: available_but_prohibited_by_frozen_prompt
+codex_tool_hard_disable: unavailable_in_subagent_api
+claude_model: pending_user_report
+pre_run_pytest_baseline: 82_passed
+rc002_tier_at_start: E1
+implementation_correspondence: pending_final_gate_confirmation
+"""
+        "benchmark_spec_inconsistency: BENCHMARK.md_header_and_changelog_are_0.2.0_"
+        "but_section_32_example_says_0.1.0\n"
+        """private_mapping_location: outside_repository_under_system_temp
+source_mapping_disclosure: withheld_until_both_blind_audits_frozen
+"""
+    )
+    _write_new(run_dir / "metadata.yaml", metadata.encode("utf-8"))
+
+    scores = {
+        "benchmark_version": BENCHMARK_VERSION,
+        "run_id": RUN_ID,
+        "item_id": "RC-002",
+        "track": "X",
+        "run_scope": "verification_only",
+        "scoring_status": "not_applicable_no_gold_or_calibration_set",
+        "generation_score": None,
+        "audit_score": None,
+        "repair_score": None,
+        "final_score": None,
+        "overall_score": None,
+        "fatal_defects": None,
+        "substantive_defects": None,
+        "minor_defects": None,
+        "expository_defects": None,
+    }
+    _write_new(
+        run_dir / "scores.json",
+        (json.dumps(scores, indent=2, sort_keys=True) + "\n").encode("utf-8"),
+    )
+
+    readme = f"""# {RUN_ID}
+
+This is a single-item, verification-only RC-002 cross-provider run under
+RC-MPVB v0.2.0 and the v2 cross-verification protocol. It is not a scored
+dataset run and supplies no model ranking.
+
+Current state: `ledger_codex_pending`.
+
+The original candidate proofs remain unchanged. Run-local P1/P2 labels were
+assigned by a cryptographic random coin flip. The mapping is stored outside the
+repository and must not be disclosed until both blind audits are frozen.
+
+The next external checkpoint is `handoff/claude-ledger-packet.md`. It must be
+run in a fresh, tool-free conversation. Return the complete observable ledger
+response plus exact model/version and execution metadata; do not return hidden
+chain-of-thought.
+
+RC-002 remains E1. No run artifact may be interpreted as E2 before the union
+ledger, both cross-provider blind audits, negation control, final independent
+adjudications, implementation-correspondence gate, and run validation all pass.
+"""
+    _write_new(run_dir / "README.md", readme.encode("utf-8"))
+    _write_new(
+        run_dir / "reconciliation.md",
+        (
+            "# Reconciliation\n\nStatus: `NOT_STARTED` — both ledger outputs are required first.\n"
+        ).encode(),
+    )
+    _write_new(
+        run_dir / "outputs" / "README.md",
+        b"# Frozen outputs\n\nNo stage output is accepted until stored verbatim and hash-bound.\n",
+    )
+    return run_dir
+
+
+def main() -> None:
+    repo_root = Path(__file__).resolve().parents[3]
+    private_root = Path(tempfile.gettempdir()) / "robocert-rcmpvb-private"
+    run_dir = prepare(repo_root, private_root)
+    print(f"prepared {run_dir}")
+    print("private blinding map stored outside repository")
+
+
+if __name__ == "__main__":
+    main()

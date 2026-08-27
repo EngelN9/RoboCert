@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://robocert.dev/schemas/0.1.0/result.schema.json",
+  "title": "RoboCert Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "claim_hash",
+    "model_hash",
+    "diagnostics",
+    "checked_certificate"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "status": {
+      "enum": [
+        "CERTIFIED_FEASIBLE",
+        "CERTIFIED_INFEASIBLE",
+        "COUNTEREXAMPLE",
+        "NUMERICALLY_FEASIBLE",
+        "NUMERICALLY_INFEASIBLE",
+        "UNKNOWN"
+      ]
+    },
+    "claim_hash": { "$ref": "#/$defs/digest" },
+    "model_hash": { "$ref": "#/$defs/digest" },
+    "diagnostics": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "checked_certificate": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/certificate" }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": { "enum": ["CERTIFIED_FEASIBLE", "CERTIFIED_INFEASIBLE"] }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "checked_certificate": { "$ref": "#/$defs/certificate" }
+        }
+      },
+      "else": {
+        "properties": {
+          "checked_certificate": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "CERTIFIED_FEASIBLE" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "checked_certificate": {
+            "properties": { "conclusion": { "const": "feasible" } }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "CERTIFIED_INFEASIBLE" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "checked_certificate": {
+            "properties": { "conclusion": { "const": "infeasible" } }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "jsonValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "integer" },
+        { "type": "string" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValue" } },
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+        }
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "artifact_hash", "description"],
+      "properties": {
+        "source_id": { "type": "string", "minLength": 1 },
+        "artifact_hash": { "$ref": "#/$defs/digest" },
+        "description": { "type": "string", "minLength": 1 }
+      }
+    },
+    "certificate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "certificate_id",
+        "family",
+        "conclusion",
+        "claim_hash",
+        "model_hash",
+        "assumption_ids",
+        "checker_id",
+        "checker_version",
+        "arithmetic_mode",
+        "payload",
+        "provenance"
+      ],
+      "properties": {
+        "schema_version": { "const": "0.1.0" },
+        "certificate_id": { "type": "string", "minLength": 1 },
+        "family": { "type": "string", "minLength": 1 },
+        "conclusion": { "enum": ["feasible", "infeasible"] },
+        "claim_hash": { "$ref": "#/$defs/digest" },
+        "model_hash": { "$ref": "#/$defs/digest" },
+        "assumption_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "checker_id": { "type": "string", "minLength": 1 },
+        "checker_version": { "type": "string", "minLength": 1 },
+        "arithmetic_mode": { "type": "string", "minLength": 1 },
+        "payload": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+        },
+        "provenance": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/provenance" }
+        }
+      }
+    }
+  }
+}

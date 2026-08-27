@@ -1,0 +1,79 @@
+{
+  "provider": "Anthropic",
+  "cli": "Claude Code",
+  "cli_version": "2.1.241",
+  "requested_model": "opus",
+  "requested_effort": "max",
+  "actual_models": {
+    "claude-haiku-4-5-20251001": {
+      "canonical_model": "claude-haiku-4-5",
+      "provider": "firstParty",
+      "input_tokens": 3411,
+      "output_tokens": 20
+    },
+    "claude-opus-5": {
+      "canonical_model": "claude-opus-5",
+      "provider": "firstParty",
+      "input_tokens": 2,
+      "output_tokens": 52479
+    }
+  },
+  "primary_model": "claude-opus-5",
+  "session_id": "0e351f9c-415f-4c93-91c8-9f08e84eb0db",
+  "response_uuid": "8ed0e2b9-6b1c-4799-a7c0-0c56b71cd073",
+  "fresh_context": true,
+  "context_forked": false,
+  "safe_mode": true,
+  "tools_argument": "",
+  "tools_hard_disabled": true,
+  "no_session_persistence": true,
+  "repository_workdir": false,
+  "working_directory": "C:\\Users\\User\\.codex\\visualizations\\2026\\08\\14\\01a00271-13e9-7522-bbe4-f628024c2824",
+  "started_at_utc": "2026-08-24T03:18:55.750Z",
+  "ended_at_utc": "2026-08-24T03:28:07.435Z",
+  "duration_ms": 544867,
+  "duration_api_ms": 546171,
+  "stop_reason": "end_turn",
+  "terminal_reason": "completed",
+  "is_error": false,
+  "usage": {
+    "input_tokens": 2,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 5993,
+    "output_tokens": 52479,
+    "output_tokens_details": {
+      "thinking_tokens": 34469
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 52479,
+        "cache_read_input_tokens": 5993,
+        "cache_creation_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "total_cost_usd": 1.3184925,
+  "permission_denials": [],
+  "server_tool_use": {
+    "web_search_requests": 0,
+    "web_fetch_requests": 0
+  },
+  "observable_output_sha256": "95e46c454cf26f68535f017209a123e27e04513bdea3dc2ca6b896b1a042f422"
+}

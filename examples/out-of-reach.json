@@ -1,0 +1,9 @@
+{
+  "schema_version": "0.1.0",
+  "problem_id": "example.out-of-reach",
+  "robot": { "kind": "planar_2r", "link_lengths": ["5", "3"] },
+  "joint_limits": { "q1": ["-2.5", "2.5"], "q2": ["-2.5", "2.5"] },
+  "task": { "target": ["50", "0"] },
+  "margins": { "clearance": "0.1", "singularity": "0.5" },
+  "units": { "length": "metre", "angle": "radian" }
+}

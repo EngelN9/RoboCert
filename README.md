@@ -28,9 +28,105 @@ RoboCert is therefore not primarily a trajectory simulator, CAD package, or AI m
 
 ## Status
 
-**Research / pre-alpha.**
+**Research / pre-alpha — Phase 0 formal core prototype.**
 
-RoboCert is currently a project specification and research architecture. No production safety claim should be inferred from this repository until individual certificate backends, checkers, numerical kernels, geometry pipelines, and system assumptions have been independently validated.
+RoboCert now contains a typed formal-claim model, versioned JSON schemas,
+canonical artifact hashing, and a checker-gated result boundary. Phase 0 ships
+**no production certificate checker**, robot model, solver, or geometry backend;
+therefore no robot property is currently certified. No production safety claim
+should be inferred until individual certificate backends, checkers, numerical
+kernels, geometry pipelines, and system assumptions have been independently
+validated.
+
+The current implementation contract and trusted-computing-base declaration are
+documented in [`docs/architecture/formal-core.md`](docs/architecture/formal-core.md)
+and
+[`docs/architecture/trusted-computing-base.md`](docs/architecture/trusted-computing-base.md).
+
+For local development with Python 3.11 or newer:
+
+```text
+python -m venv .venv
+.venv/Scripts/python -m pip install -e ".[dev]"  # Windows
+.venv/Scripts/python -m pytest
+```
+
+---
+
+## Public CLI while the evidence gates are closed
+
+No production checker is currently registered. `robocert certify` deliberately
+returns `UNKNOWN` without entering the legacy four-chart search or the
+floating-point radian-to-half-angle conversion. `robocert check` likewise
+accepts no stored certificate family.
+
+Current research state:
+
+- `RC-002` remains E1. Frozen run
+  `RCMPVB-20260821-CROSS-X-RUN001` stopped after both Codex blind audits found
+  substantive proof-packet omissions; the Claude proof-audit requests were
+  blocked before inference by the provider session limit.
+- `RC-003` is `EX`: keeping the old target-based second-link formula while
+  weakening exact FK to pose tolerance has an exact rational counterexample.
+- `RC-005` is E0: a corrected principal-chart formula using the actual
+  rationalized second-link endpoint has a written argument, but awaits the
+  project owner's line-by-line E1 attestation and fresh E2 referees.
+
+The proposed `0.2.0` problem schema and
+`planar2r.pose_tolerance_witness` production family are therefore not yet
+implemented. This is an intentional fail-closed boundary, not a solver result.
+
+### Disabled-path example
+
+The legacy research input describes the question: *for a planar 2R arm, does a
+configuration exist that reaches a target point while clearing a circular
+obstacle, staying inside joint limits, and holding a singularity margin?* The
+closed public gate does not currently answer it.
+
+Describe the problem — every number a string or integer, parsed exactly:
+
+```json
+{
+  "schema_version": "0.1.0",
+  "problem_id": "example.reachable",
+  "robot": { "kind": "planar_2r", "link_lengths": ["5", "3"] },
+  "joint_limits": { "q1": ["-2.5", "2.5"], "q2": ["-2.5", "2.5"] },
+  "task": { "target": ["6", "2"] },
+  "obstacle": { "kind": "circle", "center": ["0", "-4"], "radius": "1" },
+  "margins": { "clearance": "0.1", "singularity": "0.5" }
+}
+```
+
+Submitting the legacy research input currently produces only:
+
+```text
+$ robocert certify examples/reachable.json -o run/
+UNKNOWN  (example.reachable)
+  certification is disabled because no E2-approved production checker is registered
+  no search, chart transformation, or certificate construction was run
+```
+
+No `claim.json` or `certificate.json` is emitted in this state. The preserved
+`problem.json`, `result.json`, and `report.md` make the closed gate explicit.
+
+**Reading the output.** `UNKNOWN` (exit 1) means no certificate was accepted —
+**not** that the property is false or the target unreachable. Failure to certify
+is not proof of infeasibility.
+
+**Pose tolerance.** The prior workaround certified a nearby achieved point, not
+the requested target. It is quarantined. `RC-003`'s one-inequality extension is
+refuted; `RC-005` is the corrected, still-unreviewed research route.
+
+Worked examples and the full field reference: [`examples/`](examples/), or
+`robocert schema problem.schema.json`.
+
+### Scope of the proposed MVP
+
+If its gates pass, the MVP will certify one fixed principal-chart instance with
+fixed positive link lengths, one tolerance target, one circular obstacle, exact
+rational `t` bounds, clearance, and determinant margin. It will not certify
+four-chart completeness, robustness over link lengths or task regions, 3R or
+spatial arms, CAD geometry, paths, infeasibility, or physical-robot safety.
 
 ---
 
@@ -1848,9 +1944,8 @@ rather than merely
 
 ## License
 
-**TBD.**
-
-Before accepting substantial external contributions, the project should choose an explicit open-source license and contribution policy compatible with all solver and CAD dependencies.
+Licensed under the [Apache License 2.0](LICENSE). Future solver and CAD
+dependencies must be reviewed for license compatibility before integration.
 
 ---
 
