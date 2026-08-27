@@ -468,14 +468,19 @@ validated PSD checker: trusted
 
 Phase 0 is complete when:
 
-- [ ] claim schema exists;
-- [ ] result semantics exist;
-- [ ] hash binding exists;
-- [ ] checker interface exists;
-- [ ] no code path can bypass checker promotion;
-- [ ] quantifier-reordering tests exist;
-- [ ] strict-vs-weak inequality tests exist;
-- [ ] corrupted-certificate tests exist.
+The functional Phase 0 exit criteria below are implemented and covered by the
+current test suite. This engineering milestone does not approve a production
+certificate backend and does not mark Phase 1 complete; production results stay
+`UNKNOWN` while the evidence gates remain closed.
+
+- [x] claim schema exists;
+- [x] result semantics exist;
+- [x] hash binding exists;
+- [x] checker interface exists;
+- [x] no code path can bypass checker promotion;
+- [x] quantifier-reordering tests exist;
+- [x] strict-vs-weak inequality tests exist;
+- [x] corrupted-certificate tests exist.
 
 ---
 

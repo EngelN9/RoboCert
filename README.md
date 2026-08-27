@@ -43,13 +43,24 @@ documented in [`docs/architecture/formal-core.md`](docs/architecture/formal-core
 and
 [`docs/architecture/trusted-computing-base.md`](docs/architecture/trusted-computing-base.md).
 
-For local development with Python 3.11 or newer:
+For local development with Python 3.11 or newer, create one environment and use
+the command form for your platform:
 
 ```text
 python -m venv .venv
-.venv/Scripts/python -m pip install -e ".[dev]"  # Windows
-.venv/Scripts/python -m pytest
+
+# Windows PowerShell
+.venv/Scripts/python -m pip install -e ".[dev]"
+.venv/Scripts/python -m pytest --basetemp=.pytest_cache/windows-basetemp
+
+# POSIX shells
+.venv/bin/python -m pip install -e ".[dev]"
+.venv/bin/python -m pytest
 ```
+
+The in-project `--basetemp` is the supported Windows fallback when the system
+temporary directory denies pytest cleanup. It changes only test scratch space,
+not test semantics.
 
 ---
 
