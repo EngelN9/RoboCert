@@ -1,0 +1,75 @@
+name: Phase 0 soundness checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Tests / Python ${{ matrix.python-version }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-version: "3.11"
+          - os: ubuntu-latest
+            python-version: "3.12"
+          - os: ubuntu-latest
+            python-version: "3.13"
+          - os: ubuntu-latest
+            python-version: "3.14"
+          - os: windows-latest
+            python-version: "3.14"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install project
+        run: python -m pip install -e ".[dev]"
+      - name: Run tests
+        run: python -m pytest --basetemp=.pytest-basetemp
+
+  quality:
+    name: Static checks and package build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+      - name: Install project
+        run: python -m pip install -e ".[dev]"
+      - name: Ruff lint
+        run: >-
+          python -m ruff check src tests scripts
+          benchmarks/proof-verification/scripts
+      - name: Ruff format
+        run: >-
+          python -m ruff format --check src tests scripts
+          benchmarks/proof-verification/scripts
+      - name: Mypy strict
+        run: python -m mypy src/robocert
+      - name: Validate research ledger
+        run: python scripts/check_ledger.py
+      - name: Validate research report language
+        run: python scripts/check_report_language.py research/reports
+      - name: Validate all frozen proof-verification runs
+        run: python benchmarks/proof-verification/scripts/check_rc002_run.py --all-runs
+      - name: Check installed dependencies
+        run: python -m pip check
+      - name: Build distributions
+        run: python -m build --no-isolation
+      - name: Inspect and clean-install distributions
+        run: python scripts/check_distribution.py dist --work-dir .package-smoke

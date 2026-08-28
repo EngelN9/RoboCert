@@ -1,0 +1,39 @@
+{
+  "entries": [
+    {
+      "blind_label": "P1",
+      "blinded_packet_sha256": "59fd2a56932063946b90ecea2a347465f35571a42ca64f98f1a792cce16e4471",
+      "selected_body_sha256": "36c6b9552bdc52170b358669f682f549ac31d6ef98061298fe507e32c66ea952",
+      "source_alias": "source-7f3a",
+      "source_document_sha256": "fa7777408b3a0e74d1bb00c6121b8947c2d0b6e1ef981c37fe24a138aa8297d3",
+      "source_line_range": "3-2102",
+      "transformations": [
+        "selected declared RC-002 core line range",
+        "removed source title and attribution-bearing preamble",
+        "prepended the common neutral header",
+        "performed no mathematical-symbol normalization"
+      ]
+    },
+    {
+      "blind_label": "P2",
+      "blinded_packet_sha256": "db651a83a4ac2cfa43962850a3b67edc603744761cf5454688461e77acffb38d",
+      "selected_body_sha256": "1f32d4bfa32e533c06646235cb66efec6b3dd0a4b7be988242b5451292aa368b",
+      "source_alias": "source-c91d",
+      "source_document_sha256": "15cb26413d83eed06c681d2aa703716a70153e76c8cb22d6c78bfa0fe7b29c52",
+      "source_line_range": "34-544",
+      "transformations": [
+        "selected declared RC-002 core line range",
+        "removed source title and attribution-bearing preamble",
+        "prepended the common neutral header",
+        "performed no mathematical-symbol normalization"
+      ]
+    }
+  ],
+  "mapping_status": "withheld_outside_repository",
+  "residual_leakage": [
+    "authorial prose style remains visible",
+    "section numbering and proof length remain visible",
+    "notation was not normalized because doing so could change semantics"
+  ],
+  "run_id": "RCMPVB-20260821-CROSS-X-RUN001"
+}

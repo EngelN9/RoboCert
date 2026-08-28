@@ -1,0 +1,9 @@
+* text=auto
+*.md text eol=lf whitespace=-trailing-space
+*.py text eol=lf
+*.json text eol=lf
+*.sha256 text eol=lf
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+VERSION text eol=lf

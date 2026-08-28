@@ -1,0 +1,13 @@
+{
+  "agent_id": "01a0227f-bb3c-7583-b14b-1218df90995e",
+  "context_forked": false,
+  "fresh_context": true,
+  "model": "gpt-5.6-sol",
+  "nickname": "Kuhn",
+  "observable_output_file": "ledger-codex.md",
+  "observable_output_sha256": "ca726f19f6d27328249f49bfe5d9c04aa7d65d864da978abfc6ed3414664ef1c",
+  "reasoning_effort": "ultra",
+  "recorded_at": "2026-08-21T12:12:46.4167859+08:00",
+  "tool_condition": "tools available in API but prohibited by frozen prompt",
+  "tool_hard_disable": false
+}

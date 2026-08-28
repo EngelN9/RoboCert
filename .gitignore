@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.hypothesis/
+.mypy_cache/
+.pytest_cache/
+.pytest-basetemp/
+.ruff_cache/
+.package-smoke/
+build/
+dist/

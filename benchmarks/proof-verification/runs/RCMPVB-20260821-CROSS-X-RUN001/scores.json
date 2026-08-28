@@ -1,0 +1,17 @@
+{
+  "audit_score": null,
+  "benchmark_version": "0.2.0",
+  "expository_defects": null,
+  "fatal_defects": null,
+  "final_score": null,
+  "generation_score": null,
+  "item_id": "RC-002",
+  "minor_defects": null,
+  "overall_score": null,
+  "repair_score": null,
+  "run_id": "RCMPVB-20260821-CROSS-X-RUN001",
+  "run_scope": "verification_only",
+  "scoring_status": "not_applicable_no_gold_or_calibration_set",
+  "substantive_defects": null,
+  "track": "X"
+}

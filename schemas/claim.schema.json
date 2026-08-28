@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://robocert.dev/schemas/0.1.0/claim.schema.json",
+  "title": "RoboCert Formal Claim",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "claim_id",
+    "variables",
+    "domains",
+    "quantifiers",
+    "predicates",
+    "formula",
+    "assumptions",
+    "margins",
+    "uncertainty_semantics",
+    "geometry_semantics",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "claim_id": { "$ref": "#/$defs/identifier" },
+    "variables": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/variable" }
+    },
+    "domains": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/boxDomain" }
+    },
+    "quantifiers": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/quantifierBlock" }
+    },
+    "predicates": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/predicate" }
+    },
+    "formula": { "$ref": "#/$defs/formula" },
+    "assumptions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/assumption" }
+    },
+    "margins": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/margin" }
+    },
+    "uncertainty_semantics": {
+      "enum": ["none", "adjustable", "static_robust", "policy"]
+    },
+    "geometry_semantics": {
+      "enum": [
+        "exact",
+        "outer_conservative",
+        "inner_conservative",
+        "non_certified_approximation"
+      ]
+    },
+    "provenance": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/provenance" }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$"
+    },
+    "unit": {
+      "enum": ["dimensionless", "metre", "square_metre", "radian", "second"]
+    },
+    "rational": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["numerator", "denominator"],
+      "properties": {
+        "numerator": { "type": "integer" },
+        "denominator": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "variable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["variable_id", "unit"],
+      "properties": {
+        "variable_id": { "$ref": "#/$defs/identifier" },
+        "unit": { "$ref": "#/$defs/unit" }
+      }
+    },
+    "intervalDomain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain_id",
+        "variable_id",
+        "lower",
+        "upper",
+        "unit",
+        "lower_closed",
+        "upper_closed"
+      ],
+      "properties": {
+        "domain_id": { "$ref": "#/$defs/identifier" },
+        "variable_id": { "$ref": "#/$defs/identifier" },
+        "lower": { "$ref": "#/$defs/rational" },
+        "upper": { "$ref": "#/$defs/rational" },
+        "unit": { "$ref": "#/$defs/unit" },
+        "lower_closed": { "type": "boolean" },
+        "upper_closed": { "type": "boolean" }
+      }
+    },
+    "boxDomain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["domain_id", "components"],
+      "properties": {
+        "domain_id": { "$ref": "#/$defs/identifier" },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/intervalDomain" }
+        }
+      }
+    },
+    "quantifierBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "variable_ids", "domain_id"],
+      "properties": {
+        "kind": { "enum": ["forall", "exists"] },
+        "variable_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/identifier" }
+        },
+        "domain_id": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "monomialPower": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["variable_id", "exponent"],
+      "properties": {
+        "variable_id": { "$ref": "#/$defs/identifier" },
+        "exponent": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "term": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["coefficient", "powers"],
+      "properties": {
+        "coefficient": { "$ref": "#/$defs/rational" },
+        "powers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/monomialPower" }
+        }
+      }
+    },
+    "polynomial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["terms"],
+      "properties": {
+        "terms": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/term" }
+        }
+      }
+    },
+    "predicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["predicate_id", "left", "relation", "right"],
+      "properties": {
+        "predicate_id": { "$ref": "#/$defs/identifier" },
+        "left": { "$ref": "#/$defs/polynomial" },
+        "relation": { "enum": ["eq", "gt", "ge", "lt", "le"] },
+        "right": { "$ref": "#/$defs/polynomial" }
+      }
+    },
+    "formula": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "predicate_id"],
+          "properties": {
+            "kind": { "const": "predicate" },
+            "predicate_id": { "$ref": "#/$defs/identifier" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "operands"],
+          "properties": {
+            "kind": { "enum": ["and", "or"] },
+            "operands": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/formula" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "operands"],
+          "properties": {
+            "kind": { "const": "not" },
+            "operands": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": { "$ref": "#/$defs/formula" }
+            }
+          }
+        }
+      ]
+    },
+    "assumption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assumption_id", "statement", "category"],
+      "properties": {
+        "assumption_id": { "$ref": "#/$defs/identifier" },
+        "statement": { "type": "string", "minLength": 1 },
+        "category": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "margin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["margin_id", "metric", "relation", "bound", "unit"],
+      "properties": {
+        "margin_id": { "$ref": "#/$defs/identifier" },
+        "metric": { "$ref": "#/$defs/identifier" },
+        "relation": { "enum": ["gt", "ge", "lt", "le"] },
+        "bound": { "$ref": "#/$defs/rational" },
+        "unit": { "$ref": "#/$defs/unit" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "artifact_hash", "description"],
+      "properties": {
+        "source_id": { "$ref": "#/$defs/identifier" },
+        "artifact_hash": { "$ref": "#/$defs/digest" },
+        "description": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
