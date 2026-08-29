@@ -1,0 +1,73 @@
+{
+  "_comment": [
+    "Attestation record for the planar-2R exact-witness worked instance (L1=L2=5, t1=1/2,",
+    "t2=-1/3; the same instance tests/test_checkers.py and tests/test_attestation.py use),",
+    "checked against robocert.checkers.planar2r_attested_witness_checker, which requires",
+    "lean4, rocq, and isabelle (robocert.checkers.PLANAR2R_ATTESTATION_POLICY).",
+    "",
+    "This file is a SOURCE record, not itself a certificate payload -- scripts using it copy",
+    "the `attestations` object verbatim into a Certificate's payload['attestations']. Keys",
+    "outside `attestations` (`sources`, `statements`, `pending_systems`) are repo-side",
+    "bookkeeping and are NOT part of the wire format that src/robocert/attestation.py reads.",
+    "",
+    "Only the lean4 entry is real: `lake build` in formal/ was run and",
+    "scripts/check_lean_axioms.py confirmed RoboCert.exactWitness_sound depends on exactly",
+    "[propext, Classical.choice, Quot.sound] -- no sorryAx. That theorem is the soundness",
+    "statement for exactly the checker this instance's certificate uses.",
+    "",
+    "rocq and isabelle are NOT attested: neither toolchain was available on the machine that",
+    "authored their sources, so neither kernel has ever run on them. Inventing a",
+    "kernel_accepted:true entry for either would be a fabricated verification result -- see",
+    "AGENTS.md Sec22.5 (fail closed), Sec66 (no overclaiming), and formal/AGENTS.md rule 7.",
+    "They stay under pending_systems until a real kernel run says otherwise; the CI jobs",
+    "`rocq` and `isabelle` in .github/workflows/ci.yml are the first attempt.",
+    "",
+    "Consequence, verified by scripts/check_attestations.py and pinned by",
+    "tests/test_attestation.py: feeding this record's `attestations` block into",
+    "verify_certificate() is REJECTED, because two of three required systems have no usable",
+    "attestation. That is the tightening gate working as designed, not a defect."
+  ],
+  "certificate": {
+    "certificate_id": "planar2r-attested-instance",
+    "family": "planar2r.exact_witness",
+    "claim_hash": "sha256:72b52d0a6eae0d41b7ee4a95304501f478bd46665f6b25b1080660456041092a",
+    "model_hash": "sha256:021ca85870a25f934b1c84e55fc5a527260caabac5f8522a54a7fe5a059521a8",
+    "checker_id": "robocert.planar2r_exact_witness.attested",
+    "checker_version": "0.1.0"
+  },
+  "sources": {
+    "lean4": "formal/RoboCert/Soundness.lean",
+    "rocq": "formal/rocq/RoboCert/Planar2R.v",
+    "isabelle": "formal/isabelle/RoboCert/Planar2R.thy"
+  },
+  "statements": {
+    "lean4": "formal/attestations/statements/lean4.txt",
+    "rocq": "formal/attestations/statements/rocq.txt",
+    "isabelle": "formal/attestations/statements/isabelle.txt"
+  },
+  "attestations": {
+    "format": "robocert.attestation/1",
+    "entries": [
+      {
+        "system": "lean4",
+        "toolchain": "leanprover/lean4:v4.33.1",
+        "claim_hash": "sha256:72b52d0a6eae0d41b7ee4a95304501f478bd46665f6b25b1080660456041092a",
+        "model_hash": "sha256:021ca85870a25f934b1c84e55fc5a527260caabac5f8522a54a7fe5a059521a8",
+        "checker_id": "robocert.planar2r_exact_witness.attested",
+        "checker_version": "0.1.0",
+        "statement_digest": "sha256:a2d9d5fd9c14b207f53267f05419e24889e1eef020f8dcf308ca97d09abf9401",
+        "artifact_digest": "sha256:12b5dfae30d4e0122f300e8c4df2677a4f67343bbffd70023c6ec2695b3b68fc",
+        "axioms": ["propext", "Classical.choice", "Quot.sound"],
+        "kernel_accepted": true
+      }
+    ]
+  },
+  "pending_systems": {
+    "rocq": {
+      "reason": "Rocq toolchain unavailable on the machine that authored the source; never run"
+    },
+    "isabelle": {
+      "reason": "Isabelle toolchain unavailable on the machine that authored the source; never run"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+Lemma pythagorean_identity : forall t : Q,
+  C t * C t + S t * S t == D t * D t.
+
+Lemma segment1_nondegenerate_identity : forall (L1 D1 D2 : Q),
+  L1 * L1 * (D1 * D1) * (D2 * D2) == L1 * L1 * ((D1 * D2) * (D1 * D2)).
+
+Lemma segment2_nondegenerate_identity : forall (L2 D1 D2 : Q),
+  L2 * L2 * (D1 * D1) * (D2 * D2) == L2 * L2 * ((D1 * D2) * (D1 * D2)).
+
+Lemma segment1_zero_implies_length_zero : forall (L1 D1 D2 : Q),
+  D1 <> 0 -> D2 <> 0 ->
+  L1 * L1 * (D1 * D1) * (D2 * D2) == 0 ->
+  L1 == 0.
+
+Lemma segment2_zero_implies_length_zero : forall (L2 D1 D2 : Q),
+  D1 <> 0 -> D2 <> 0 ->
+  L2 * L2 * (D1 * D1) * (D2 * D2) == 0 ->
+  L2 == 0.

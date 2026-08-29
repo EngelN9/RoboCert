@@ -17,3 +17,9 @@ VERSION text eol=lf
 lean-toolchain text eol=lf
 _CoqProject text eol=lf
 ROOT text eol=lf
+
+# Files whose SHA-256 is recorded in formal/attestations/*.json. Their digest IS their
+# content, so a platform-dependent line ending would make the same commit hash differently
+# on Windows and Linux and break scripts/check_attestations.py on one of them. Any new
+# digest-bearing file MUST be pinned here.
+formal/attestations/statements/* text eol=lf

@@ -1,0 +1,11 @@
+lemma singleton_box_admits_its_point:
+  "in_box a a b b a b"
+
+lemma bounded_existential_transport:
+  assumes pointwise: "\<And>t1 t2. Phi t1 t2 \<longleftrightarrow> Geo t1 t2"
+  shows "(\<exists>t1 t2. in_box a1 b1 a2 b2 t1 t2 \<and> Phi t1 t2)
+       \<longleftrightarrow> (\<exists>t1 t2. in_box a1 b1 a2 b2 t1 t2 \<and> Geo t1 t2)"
+
+lemma empty_box_forces_false:
+  assumes empty: "a1 > b1"
+  shows "\<not> (\<exists>t1 t2. in_box a1 b1 a2 b2 t1 t2 \<and> Phi t1 t2)"

@@ -1,0 +1,8 @@
+session RoboCert = HOL +
+  description "Planar-2R quantified semialgebraic claims: independent cross-check of the
+    bounded existential / interval-membership shape, complementing formal/rocq's polynomial
+    identities and formal/RoboCert's (Lean) checker-model soundness theorem. See
+    formal/README.md for what is and is not proved."
+  options [document = false]
+  theories
+    Planar2R
