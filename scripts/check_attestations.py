@@ -73,12 +73,28 @@ def _run(cmd: list[str], *, cwd: Path) -> tuple[int, str]:
     return completed.returncode, completed.stdout + completed.stderr
 
 
+def _rocq_command() -> list[str] | None:
+    """Return the argv prefix that compiles a .v file, across Rocq/Coq naming generations.
+
+    Rocq 9 renamed the compiler entry point: `coqc file.v` became `rocq compile file.v`.
+    Some packagings still ship a `rocqc` shim. Probe all three rather than assuming one.
+    """
+    if shutil.which("rocq") is not None:
+        return [shutil.which("rocq") or "rocq", "compile"]
+    for legacy in ("rocqc", "coqc"):
+        found = shutil.which(legacy)
+        if found is not None:
+            return [found]
+    return None
+
+
 def _check_rocq(source: Path) -> tuple[bool, str]:
-    """Compile the .v file directly with rocqc/coqc. No project-wide build system assumed."""
-    tool = shutil.which("rocqc") or shutil.which("coqc")
-    if tool is None:
-        return False, "no rocqc/coqc on PATH"
-    code, output = _run([tool, "-Q", str(source.parent), "RoboCert", str(source)], cwd=FORMAL_DIR)
+    """Compile the .v file directly. No project-wide build system assumed."""
+    command = _rocq_command()
+    if command is None:
+        return False, "no rocq/rocqc/coqc on PATH"
+    argv = [*command, "-Q", str(source.parent), "RoboCert", str(source)]
+    code, output = _run(argv, cwd=FORMAL_DIR)
     if code != 0:
         return False, f"compilation failed:\n{output}"
     if "admit" in output.lower():
@@ -189,7 +205,7 @@ def check_record(path: Path, require_available: Sequence[str] = ()) -> list[str]
             errors.append(f"{path}: pending system {system!r} names a missing source {source}")
             continue
 
-        if system == "rocq" and (_tool_available("rocqc") or _tool_available("coqc")):
+        if system == "rocq" and _rocq_command() is not None:
             ok, detail = _check_rocq(source)
         elif system == "isabelle" and _tool_available("isabelle"):
             ok, detail = _check_isabelle(source.parent.parent)

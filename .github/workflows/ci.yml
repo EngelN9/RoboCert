@@ -137,11 +137,22 @@ jobs:
           opam repo add rocq-released https://rocq-prover.org/opam/released
           opam install -y rocq-prover.9.0.0
           # `opam env` emits shell statements (`PATH='...'; export PATH;`), NOT the
-          # KEY=value lines $GITHUB_ENV expects, so appending it silently propagates
-          # nothing. Export the switch's bin directory directly instead. The first run of
-          # this job installed Rocq 9.0.0 successfully and then reported it UNAVAILABLE
-          # for exactly this reason.
-          echo "$(opam var --switch=robocert bin)" >> "$GITHUB_PATH"
+          # KEY=value lines $GITHUB_ENV expects, so appending it propagates nothing; and
+          # `opam var --switch=... bin` came back empty here too. Use the switch's
+          # deterministic layout instead.
+          echo "$HOME/.opam/robocert/bin" >> "$GITHUB_PATH"
+      # Diagnostic and assertion in one. If Rocq is not runnable the job must stop HERE,
+      # naming what is actually in the switch, rather than failing later with a bare
+      # "not on PATH". Rocq 9 renamed `coqc` to `rocq compile`, so probe all spellings.
+      - name: Confirm Rocq is runnable
+        run: |
+          echo "switch bin contents:"
+          ls -1 "$HOME/.opam/robocert/bin" || true
+          if command -v rocq >/dev/null; then rocq --version
+          elif command -v rocqc >/dev/null; then rocqc --version
+          elif command -v coqc >/dev/null; then coqc --version
+          else echo "::error::no rocq/rocqc/coqc on PATH after opam install"; exit 1
+          fi
       # --require rocq makes an absent toolchain a hard failure. Without it this job
       # passes green when Rocq is missing, which is a worse signal than a red build.
       - name: Verify attestations (Rocq must actually be present)

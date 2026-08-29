@@ -62,12 +62,17 @@ Absent that re-run, an attestation is **provenance, not proof**.
 | Lean model ≡ Python implementation | **NOT PROVED.** Differential conformance testing against shared vectors is planned, not yet built |
 | ℚ semantics → ℝ semantics | **NOT PROVED.** Needs mathlib, deliberately not pinned yet |
 | Certificate payload parsing / hash binding | **NOT MODELLED** by Lean. `verify_certificate`'s metadata cross-checks are a separate concern |
-| Rocq: `formal/rocq/RoboCert/Planar2R.v` compiles with no `admit` | **NOT YET CONFIRMED.** Rocq is not installed on any machine that has worked on this repository so far; the CI job `rocq` is the first attempt to actually run it — see `formal/attestations/planar2r-exact-witness.json` |
-| Isabelle: `formal/isabelle/RoboCert/Planar2R.thy` builds with no `sorry` | **NOT YET CONFIRMED.** Same as above; CI job `isabelle` is the first attempt |
+| Rocq: `formal/rocq/RoboCert/Planar2R.v` compiles with no `admit` | **NOT YET CONFIRMED.** Rocq 9.0.0 installs correctly in the `rocq` CI job, but the compiler has not yet been reached: the job first passed green without Rocq on PATH (a false green, now impossible via `--require`), and the source has still never been compiled |
+| Isabelle: `formal/isabelle/RoboCert/Planar2R.thy` builds with no `sorry` | **CONFIRMED** — the `isabelle` CI job reports "session built cleanly" under `--require isabelle`, so a real kernel ran. Its first attempt failed on a `ROOT` layout error (theory in a subdirectory needs an explicit `directories` declaration), not on the mathematics |
 | The committed attestation record is rejected by `PLANAR2R_ATTESTATION_POLICY` | **CONFIRMED** — `tests/test_attestation.py::test_committed_attestation_record_matches_real_policy_and_is_honestly_incomplete` runs the real policy against it, not a description of the policy |
 
-The Lean row is the one settled fact here. Everything below it is either an open bridge or an
-honestly unconfirmed claim, and the table says so rather than implying otherwise.
+The Lean and Isabelle rows are the settled facts here; both were confirmed by a kernel that
+actually ran. Everything else is an open bridge or an honestly unconfirmed claim, and the table
+says so rather than implying otherwise. Note that Isabelle building does NOT make it an
+attestation: `formal/attestations/planar2r-exact-witness.json` still carries no
+`kernel_accepted` entry for it, because promoting one out of `pending_systems` requires
+recording the toolchain and digests from that specific successful run (`formal/AGENTS.md`
+rule 7).
 
 ## A layout asymmetry, recorded rather than hidden
 
