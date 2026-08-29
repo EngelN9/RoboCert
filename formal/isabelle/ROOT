@@ -4,5 +4,11 @@ session RoboCert = HOL +
     identities and formal/RoboCert's (Lean) checker-model soundness theorem. See
     formal/README.md for what is and is not proved."
   options [document = false]
+  (* The theory lives in the RoboCert/ subdirectory, mirroring formal/rocq/RoboCert/ and
+     formal/RoboCert/. Isabelle resolves theory names relative to this ROOT file, so the
+     subdirectory must be declared explicitly -- omitting it produces
+     "No such file: .../formal/isabelle/Planar2R.thy". *)
+  directories
+    RoboCert
   theories
-    Planar2R
+    "RoboCert/Planar2R"

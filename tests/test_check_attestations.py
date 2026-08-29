@@ -132,3 +132,24 @@ def test_committed_record_is_clean(script: Any) -> None:
     )
 
     assert errors == []
+
+
+def test_require_flag_fails_when_a_toolchain_is_absent(script: Any, tmp_path: Path) -> None:
+    """A CI job named after a prover must not pass green when that prover is missing.
+
+    The first real run of the `rocq` CI job did exactly that: opam installed Rocq 9.0.0,
+    its PATH never reached the verification step, the script reported UNAVAILABLE, and the
+    job went green having verified nothing. `--require` is what makes that impossible.
+    """
+    record = _record()
+    record["pending_systems"] = {"rocq": {"reason": "not installed in this test"}}
+    record["sources"]["rocq"] = _REAL_SOURCE  # any real file; it is never compiled here
+
+    without = _run(script, record, tmp_path)
+    assert not any("REQUIRED to be available" in error for error in without)
+
+    path = tmp_path / "required.json"
+    path.write_text(json.dumps(record), encoding="utf-8")
+    with_require = list(script.check_record(path, require_available=["rocq"]))
+
+    assert any("REQUIRED to be available" in error for error in with_require)

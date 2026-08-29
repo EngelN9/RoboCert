@@ -23,15 +23,24 @@ For each record under `formal/attestations/`:
 Exit code is nonzero only for an actual defect: a stale digest, a missing named file, a kernel
 that now fails, or a malformed record. An honestly incomplete record exits 0 -- "unavailable"
 is the state the tightening gate exists to handle, not an error.
+
+`--require SYSTEM` inverts that for one system: it makes an unavailable toolchain a hard
+failure. CI jobs whose entire purpose is to exercise a particular kernel MUST pass it. Without
+it a job named after a prover passes green when that prover is absent, which is a worse signal
+than a red build -- it is a green one that means nothing. That is not hypothetical: the first
+run of the `rocq` job did exactly this, because opam installed Rocq but its PATH never reached
+the step that needed it.
 """
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import shutil
 import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -133,8 +142,12 @@ def _check_bound_digests(
     return errors
 
 
-def check_record(path: Path) -> list[str]:
-    """Return diagnostics for one attestation record; empty means clean."""
+def check_record(path: Path, require_available: Sequence[str] = ()) -> list[str]:
+    """Return diagnostics for one attestation record; empty means clean.
+
+    `require_available` names systems whose toolchain MUST be present; an absent one
+    becomes an error rather than a skip.
+    """
     errors: list[str] = []
     try:
         record: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
@@ -182,10 +195,16 @@ def check_record(path: Path) -> list[str]:
             ok, detail = _check_isabelle(source.parent.parent)
         else:
             reason = info.get("reason", "no reason recorded")
-            print(
-                f"check_attestations: {path.name}: {system!r} UNAVAILABLE on this machine "
-                f"-- reported, not treated as a pass ({reason})"
-            )
+            if system in require_available:
+                errors.append(
+                    f"{path}: {system!r} was REQUIRED to be available here but its toolchain "
+                    "is not on PATH. Refusing to report success for a kernel that never ran."
+                )
+            else:
+                print(
+                    f"check_attestations: {path.name}: {system!r} UNAVAILABLE on this machine "
+                    f"-- reported, not treated as a pass ({reason})"
+                )
             continue
 
         if ok:
@@ -211,7 +230,20 @@ def check_record(path: Path) -> list[str]:
     return errors
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--require",
+        action="append",
+        default=[],
+        metavar="SYSTEM",
+        help=(
+            "Fail if this proof system's toolchain is not installed. Use in a CI job whose "
+            "purpose is to exercise that kernel, so the job cannot pass without it."
+        ),
+    )
+    args = parser.parse_args(argv)
+
     if not ATTESTATIONS_DIR.is_dir():
         print(f"check_attestations: no directory at {ATTESTATIONS_DIR}", file=sys.stderr)
         return 2
@@ -223,7 +255,7 @@ def main() -> int:
 
     all_errors: list[str] = []
     for record_path in records:
-        all_errors.extend(check_record(record_path))
+        all_errors.extend(check_record(record_path, require_available=args.require))
 
     if all_errors:
         for error in all_errors:

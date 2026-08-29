@@ -136,12 +136,16 @@ jobs:
           eval "$(opam env --switch=robocert)"
           opam repo add rocq-released https://rocq-prover.org/opam/released
           opam install -y rocq-prover.9.0.0
-          opam env --switch=robocert --set-switch >> "$GITHUB_ENV"
-      # Re-verifies the committed record against every AVAILABLE prover; with Rocq now on
-      # PATH, this actually compiles formal/rocq/RoboCert/Planar2R.v. It does not fabricate
-      # a pass -- see scripts/check_attestations.py's module docstring.
-      - name: Verify attestations
-        run: python scripts/check_attestations.py
+          # `opam env` emits shell statements (`PATH='...'; export PATH;`), NOT the
+          # KEY=value lines $GITHUB_ENV expects, so appending it silently propagates
+          # nothing. Export the switch's bin directory directly instead. The first run of
+          # this job installed Rocq 9.0.0 successfully and then reported it UNAVAILABLE
+          # for exactly this reason.
+          echo "$(opam var --switch=robocert bin)" >> "$GITHUB_PATH"
+      # --require rocq makes an absent toolchain a hard failure. Without it this job
+      # passes green when Rocq is missing, which is a worse signal than a red build.
+      - name: Verify attestations (Rocq must actually be present)
+        run: python scripts/check_attestations.py --require rocq
 
   isabelle:
     name: Isabelle/HOL quantified semialgebraic cross-check
@@ -172,8 +176,6 @@ jobs:
           tar xzf isabelle.tar.gz
       - name: Add Isabelle to PATH
         run: echo "$PWD/Isabelle2025/bin" >> "$GITHUB_PATH"
-      # Re-verifies the committed record against every AVAILABLE prover; with Isabelle now
-      # on PATH, this actually builds the formal/isabelle/RoboCert session. It does not
-      # fabricate a pass -- see scripts/check_attestations.py's module docstring.
-      - name: Verify attestations
-        run: python scripts/check_attestations.py
+      # --require isabelle: see the equivalent note in the rocq job.
+      - name: Verify attestations (Isabelle must actually be present)
+        run: python scripts/check_attestations.py --require isabelle
