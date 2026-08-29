@@ -203,3 +203,26 @@ history:
     existential semantics, and explicit implementation-correspondence
     obligations. Awaiting project-owner line-by-line read before E1; no
     production implementation or registration is authorized at E0.
+  - 2026-08-28 note: three mutually isolated `adversary` subagents, each given a
+    claim-only packet and denied every proof/ledger/benchmark path, searched for
+    a counterexample to the pointwise and bounded-existential equivalences. None
+    was found. Tier stays E0 -- an adversary finding nothing is a coverage
+    statement, not evidence of soundness, and cannot substitute for the owner
+    read or the referee protocol. Log:
+    research/notes/2026-08-28-rc005-adversary-search.md. Substantive results:
+    (a) the two scalar conjuncts reduce to exact rational-function identities
+    `T == D^2(tau^2 - ||p2-P*||^2)` and `G == D_2^2(detJ^2 - eps^2)` with
+    nowhere-vanishing denominators, so they hold for all REAL t, not only
+    rational -- no irrational counterexample to them exists; (b) all three agents
+    independently found that the generic `Seg` construct is UNSOUND at `Q_ = 0`
+    (branch III fires vacuously and reports clearance for a centre inside the
+    disc), reachable only by violating `L1, L2 != 0` -- RC-005 is safe as stated,
+    but the `Q_ > 0` side condition belongs on `Seg` itself before any reuse for
+    prismatic joints, uncertain link lengths, or swept segments; (c) with
+    `eps > 0` the chart's unreachable set is exactly the circle `q1 = pi`, no
+    chart-offset parameter exists, and an exact instance is recorded where the
+    physical problem is feasible while both sides of the bounded claim are false;
+    (d) an exact `Q(sqrt 7)` instance is satisfiable with no rational witness in
+    the box, a regression fixture for "search failure must return UNKNOWN";
+    (e) `tau >= 0` and `a_i <= b_i` are inert, while `R >= 0`, `eps >= 0` and
+    non-vanishing `L1, L2` are load-bearing and tight.
