@@ -10,3 +10,17 @@ __pycache__/
 .package-smoke/
 build/
 dist/
+
+# Lean build artifacts (formal/). lake-manifest.json IS committed -- it pins deps.
+.lake/
+
+# Rocq build artifacts (formal/rocq/).
+*.vo
+*.vok
+*.vos
+*.glob
+.coq-native/
+.CoqMakefile*
+
+# Isabelle build artifacts and heap output (formal/isabelle/).
+.isabelle/

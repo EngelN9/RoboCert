@@ -73,3 +73,107 @@ jobs:
         run: python -m build --no-isolation
       - name: Inspect and clean-install distributions
         run: python scripts/check_distribution.py dist --work-dir .package-smoke
+
+  formal:
+    name: Lean 4 soundness proofs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      # The toolchain version is pinned by formal/lean-toolchain and is deliberately NOT
+      # repeated here -- a second copy would be a second thing to keep in sync.
+      - name: Install elan
+        run: |
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v4.2.4/elan-x86_64-unknown-linux-gnu.tar.gz \
+            | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Cache Lean build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.elan
+            formal/.lake/build
+          key: lean-${{ runner.os }}-${{ hashFiles('formal/lean-toolchain', 'formal/lake-manifest.json') }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+      - name: Build
+        run: lake build
+        working-directory: formal
+      # Fail closed. `lake build` only WARNS on `sorry`; this is the gate that actually
+      # rejects an unproved theorem. See scripts/check_lean_axioms.py.
+      - name: Axiom audit
+        run: python scripts/check_lean_axioms.py
+
+  rocq:
+    name: Rocq exact polynomial identities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+      # Rocq (the renamed Coq) has no single official apt package as of this writing; opam
+      # is the community-standard, version-pinned installation method. NOTE: neither Rocq
+      # nor opam is installed on the machine that authored this job -- the exact package
+      # name/repo URL/version below is a best-effort first cut, not something re-run and
+      # confirmed here. If it has drifted by the time this job actually runs, that is a
+      # real finding to fix, not a sign the design is wrong. See
+      # formal/attestations/planar2r-exact-witness.json, which records Rocq as pending for
+      # exactly this reason.
+      - name: Install opam
+        run: sudo apt-get update && sudo apt-get install -y opam
+      - name: Install pinned Rocq via opam
+        run: |
+          opam init -y --bare --disable-sandboxing
+          opam switch create robocert ocaml-base-compiler
+          eval "$(opam env --switch=robocert)"
+          opam repo add rocq-released https://rocq-prover.org/opam/released
+          opam install -y rocq-prover.9.0.0
+          opam env --switch=robocert --set-switch >> "$GITHUB_ENV"
+      # Re-verifies the committed record against every AVAILABLE prover; with Rocq now on
+      # PATH, this actually compiles formal/rocq/RoboCert/Planar2R.v. It does not fabricate
+      # a pass -- see scripts/check_attestations.py's module docstring.
+      - name: Verify attestations
+        run: python scripts/check_attestations.py
+
+  isabelle:
+    name: Isabelle/HOL quantified semialgebraic cross-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+      # Pinned release tarball, the method the Isabelle project itself documents for
+      # non-interactive use. NOTE: Isabelle is not installed on the machine that authored
+      # this job; the release name/URL below is a best-effort first cut. If Isabelle has
+      # published a newer stable release by the time this job runs, update this URL and the
+      # cache key together -- do not let them drift apart silently.
+      - name: Cache Isabelle
+        id: isabelle-cache
+        uses: actions/cache@v4
+        with:
+          path: Isabelle2025
+          key: isabelle2025-${{ runner.os }}
+      - name: Install Isabelle2025
+        if: steps.isabelle-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -sSfL https://isabelle.in.tum.de/website-Isabelle2025/dist/Isabelle2025_linux.tar.gz -o isabelle.tar.gz
+          tar xzf isabelle.tar.gz
+      - name: Add Isabelle to PATH
+        run: echo "$PWD/Isabelle2025/bin" >> "$GITHUB_PATH"
+      # Re-verifies the committed record against every AVAILABLE prover; with Isabelle now
+      # on PATH, this actually builds the formal/isabelle/RoboCert session. It does not
+      # fabricate a pass -- see scripts/check_attestations.py's module docstring.
+      - name: Verify attestations
+        run: python scripts/check_attestations.py

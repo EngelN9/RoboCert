@@ -19,9 +19,51 @@ Every entry in `research/CLAIMS.md` carries exactly one tier. No entry is untier
 | `E0` | Suggestion | Unreviewed idea — chat, `research/notes/`. Zero weight. Never cited outside `notes/`. |
 | `E1` | Read | A human has read and believes a written soundness argument for an algorithm, reduction, or checker design. Not yet adversarially reviewed. Still routinely wrong. |
 | `E2` | Refereed | Survived the adversarial protocol: hostile + naive fresh-context review (Codex: `.codex/agents/referee-hostile.toml`, `.codex/agents/referee-naive.toml`; Claude: `.claude/agents/referee-hostile.md`, `.claude/agents/referee-naive.md`), step isolation, and negation control. Required before a production `Checker` implementing this claim may be written. |
-| `E3` | Checked | Either (a) a concrete claim has a `CheckedCertificate` — a registered `Checker` accepted it via `verify_certificate()` — or (b) for a general algorithm/checker-design claim, the checker implementing it has passed the full positive/negative/adversarial/corrupted-certificate test suite required by `docs/architecture/trusted-computing-base.md`'s "Future certificate-family obligation". RoboCert's own checker gate is the `E3` mechanism; no external proof assistant is used. |
+| `E3` | Checked | Either (a) a concrete claim has a `CheckedCertificate` — a registered `Checker` accepted it via `verify_certificate()` — or (b) for a general algorithm/checker-design claim, the checker implementing it has passed the full positive/negative/adversarial/corrupted-certificate test suite required by `docs/architecture/trusted-computing-base.md`'s "Future certificate-family obligation". RoboCert's own checker gate is the `E3` mechanism. A Lean 4 development in `formal/` mechanizes soundness arguments about checker *models*; that is recorded separately and is **not** a tier — see "Mechanization" below. |
 | `E4` | Cited | Taken from the literature with a verified locator in `research/literature/`. Inherits the literature's reliability — high, but not `E3`. |
 | `EX` | Refuted | Known false. Never deleted — the reason it's false is the most valuable content in the entry. Lives in `research/OBSTRUCTIONS.md` or the ledger itself with `tier: EX`. |
+
+## Mechanization
+
+`formal/` holds three proof-assistant developments — Lean 4, Rocq, and Isabelle/HOL — each
+proving soundness properties about a *model* of some part of RoboCert. Lean covers
+`verify → Claim.Semantics` for the exact-witness family. Rocq covers exact polynomial
+identities (currently, the RC-005 nondegeneracy facts that rule out a `Seg`-construct
+unsoundness three isolated adversary runs independently found). Isabelle covers the
+bounded-existential quantifier transport (currently, the RC-002 corrigendum's C2 step,
+proved generically). None of the three attempts real quantifier elimination or an SOS/SDP
+backend — that remains unimplemented, per `ROADMAP.md` Phase 3 and Phase 1.3/1.4.
+
+Mechanization is deliberately **not** an evidence tier, for the same reason `E2` and `E3` are
+not ordered: it is a different kind of evidence. A kernel-checked proof about a model of a
+checker is not a `CheckedCertificate`, and it does not become one by being harder to obtain,
+or by being confirmed by more than one kernel. Concretely, a proof from any of the three:
+
+- does **not** raise any `RC-xxx` tier on its own;
+- does **not** authorize registering a production checker;
+- does **not** discharge the "Future certificate-family obligation" in
+  `docs/architecture/trusted-computing-base.md`;
+- proves things about a `formal/` model, **not** about `src/robocert/`. That correspondence
+  is established by differential testing (Lean) or has not yet been attempted (Rocq,
+  Isabelle), and is not proved by any of them.
+
+One channel is a narrow, deliberate exception: `src/robocert/attestation.py` lets a
+registered checker *require* attestations from proof-assistant kernels, but only as a veto —
+`AttestedChecker.check` computes `inner.accepted and not violations`, so an attestation can
+never turn a rejection into an acceptance, only the reverse. Missing, corrupted, mismatched,
+or failed proof checking rejects; it is never treated as `CERTIFIED_*`. See
+`docs/architecture/trusted-computing-base.md`, "The attestation gate", for the full account.
+Validating an attestation is not the same as running a kernel — it checks that a hash-bound
+record *claims* a kernel accepted a statement. Re-running the kernel is
+`scripts/check_attestations.py`'s job, in CI, where the toolchains are installed. Absent that
+re-run, an attestation is provenance, not proof.
+
+All three systems are proof-time only. None is a runtime dependency, none appears in
+`dependencies`, and none is needed to reproduce a result under `AGENTS.md` §34.
+
+An optional `mechanized:` field on a ledger entry, naming the declaration(s) and toolchain
+pin(s) across whichever systems attest to it, is introduced when the first claim actually
+uses one. Until then no ledger entry carries it.
 
 `E2` is not a weak form of `E3`. It is a different kind of evidence — several
 independent reviewers rather than one deterministic checker — and the two are not

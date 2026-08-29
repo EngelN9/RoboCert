@@ -7,3 +7,13 @@
 *.yaml text eol=lf
 *.yml text eol=lf
 VERSION text eol=lf
+
+# Proof-assistant sources and toolchain pins. All three ecosystems are Unix-centric and
+# their tooling is fragile about CRLF; keep these LF in the working tree too, not just in
+# the repository.
+*.lean text eol=lf
+*.v text eol=lf
+*.thy text eol=lf
+lean-toolchain text eol=lf
+_CoqProject text eol=lf
+ROOT text eol=lf

@@ -44,7 +44,7 @@ statuses or replace its deterministic certificate-checking boundary.
 | `OBSTRUCTIONS.md` | `research/OBSTRUCTIONS.md` |
 | `literature/` verified locators | `research/literature/LIT-xxx.md`, operationalizing `AGENTS.md` §67 |
 | `special-cases/` specialization lattice | `research/special-cases/`, keyed to `ROADMAP.md`'s benchmark ladder |
-| Formal proof assistant (Lean/Coq) as the top evidence tier | Not used — RoboCert's own `Checker`/`verify_certificate()` gate serves as the tier-`E3` mechanism |
+| Formal proof assistant (Lean/Coq) as the top evidence tier | Adopted in part — `formal/` holds Lean 4, Rocq, and Isabelle/HOL developments proving soundness of checker *models* and supporting algebraic/quantifier facts, but none is a tier: RoboCert's own `Checker`/`verify_certificate()` gate remains the tier-`E3` mechanism. A checker MAY additionally require proof-assistant attestations as a veto-only gate (`src/robocert/attestation.py`); an attestation can reject a certificate but never certify one. See `research/README.md` "Mechanization" and `formal/README.md`. |
 | `certificates/` + `checkers/`, small trust base | Already exists: `src/robocert/certificates.py`, `src/robocert/checking.py`, `docs/architecture/trusted-computing-base.md` |
 | Adversarial referee subagents | Codex: `.codex/agents/referee-hostile.toml`, `.codex/agents/referee-naive.toml`; Claude: `.claude/agents/referee-hostile.md`, `.claude/agents/referee-naive.md` |
 | Counterexample search agent | Codex: `.codex/agents/adversary.toml`; Claude: `.claude/agents/adversary.md`; both complement `AGENTS.md` §31 and the planned `CounterexampleAgent` |

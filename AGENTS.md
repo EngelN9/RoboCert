@@ -1304,8 +1304,14 @@ robocert/
 │   ├── spatial_3dof/
 │   ├── industrial_6dof/
 │   └── robust_7dof/
-└── certificates/
+├── certificates/
+└── formal/                  # Lean 4; proof-time only, not a runtime component
 ```
+
+`formal/` is the one non-Python subtree. It contains kernel-checkable soundness proofs about
+checker MODELS and is governed by `formal/AGENTS.md`. It is proof-time only: it never
+executes during certification, is not a package dependency, and is not required to reproduce
+a result under §34. See `docs/architecture/trusted-computing-base.md`, "Trusted to PROVE".
 
 ---
 
@@ -2315,6 +2321,44 @@ For each solver, document:
 - failure semantics.
 
 A proprietary or opaque solver MAY be used for candidate search if its output is independently certifiable.
+
+The same disclosure applies to proof assistants. Currently declared:
+
+| Tool | Lean 4 |
+| --- | --- |
+| License | Apache-2.0 |
+| Version | pinned in `formal/lean-toolchain`; dependency revisions pinned in `formal/lake-manifest.json` |
+| Role | mechanized soundness proofs about checker models |
+| Trusted status | **trusted to prove, untrusted to run** — it is not in the runtime path and cannot affect any result |
+| Certificate output | none. A Lean proof is not a RoboCert certificate and never becomes one |
+| Reproducibility | `lake build` from the committed pins; CI job `formal` |
+| Failure semantics | a failed build or a `sorryAx` dependency fails CI (`scripts/check_lean_axioms.py`). It does not change any runtime status: results stay `UNKNOWN` for the same reasons as before |
+
+| Tool | Rocq |
+| --- | --- |
+| License | LGPL-2.1-only |
+| Version | pinned via opam in CI job `rocq` (`.github/workflows/ci.yml`); not yet pinned by a committed lockfile analogous to `lake-manifest.json` -- tracked as a gap, not silently accepted |
+| Role | exact polynomial identities, and (future work, not yet implemented) Positivstellensatz/SOS-style certificates, real-closed-field reasoning, validated interval arithmetic |
+| Trusted status | **trusted to prove, untrusted to run** — same boundary as Lean |
+| Certificate output | none directly. Its results may be recorded as an *attestation* inside a certificate `payload` (`src/robocert/attestation.py`), which can only veto acceptance, never grant it |
+| Reproducibility | `rocq compile` from the committed source; CI job `rocq` |
+| Failure semantics | a failed compile, or an `admit`ted proof, fails the CI job and (via `scripts/check_attestations.py`) is reported rather than silently treated as a pass |
+
+| Tool | Isabelle/HOL |
+| --- | --- |
+| License | BSD-3-Clause |
+| Version | pinned by the release tarball URL in CI job `isabelle` (`.github/workflows/ci.yml`) |
+| Role | quantified semialgebraic claims, and (future work, not yet implemented) independent real quantifier-elimination cross-checking |
+| Trusted status | **trusted to prove, untrusted to run** — same boundary as Lean |
+| Certificate output | none directly, same attestation-only path as Rocq |
+| Reproducibility | `isabelle build` from the committed session; CI job `isabelle` |
+| Failure semantics | a failed session build, or a `sorry`, fails the CI job and is reported rather than silently treated as a pass |
+
+No proof assistant widens what may be certified. Each narrows what may be *believed* about a
+checker's design, or -- via the attestation gate in `src/robocert/attestation.py` -- narrows
+what a checker will *accept*. Neither can ever cause an acceptance the underlying Python
+checker did not already reach on its own. Registration and `CERTIFIED_*` remain governed by
+§4.1 and by `docs/architecture/trusted-computing-base.md` unchanged.
 
 ---
 
