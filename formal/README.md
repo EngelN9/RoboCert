@@ -104,7 +104,13 @@ Recorded so that a correspondence review has a checklist rather than a diff.
    checker identity, and provenance. Those belong to the binding theorem, not the semantic
    one.
 4. **Field names are camelCase** in Lean, snake_case in Python.
-5. The upstream methodology manual uses a `lean/` directory
+5. **Rocq nondegeneracy hypotheses are setoid, not Leibniz.** `Planar2R.v` uses
+   `~ (D == 0)`, not `D <> 0`. Over `Q` these differ: `0#5` is `== 0` but not `= 0`, so the
+   Leibniz form admits a counterexample that makes the lemma FALSE. The first version of that
+   file used `<>` and the Rocq kernel rejected it -- a case of a proof assistant catching a
+   wrong statement rather than a wrong proof. RC-005 itself is unaffected; its hypothesis is
+   `L1, L2 > 0` over the reals, stronger than either reading.
+6. The upstream methodology manual uses a `lean/` directory
    (`docs/methodology/anthropic-research-methodology-source.md:80`); this project uses
    `formal/`.
 

@@ -14,8 +14,8 @@
     these particular identities, only the field axioms [ring] already has.
 *)
 
-Require Import Coq.QArith.QArith.
-Require Import Coq.QArith.Qring.
+From Stdlib Require Import QArith.
+From Stdlib Require Import Qring.
 
 Open Scope Q_scope.
 
@@ -80,15 +80,27 @@ Proof.
   intros L2 D1 D2. ring.
 Qed.
 
-(** *** Corollary: [Q_ = 0] on an encoded segment forces the corresponding link length to
+(** *** Corollary: [Q_ == 0] on an encoded segment forces the corresponding link length to
     be zero.
 
-    This is the direction that actually matters for soundness: it is the contrapositive of
-    "[L <> 0] implies [Q_ <> 0]", proved directly from the identity above plus [Q]'s
-    integral-domain structure ([Qmult_integral]), without importing any order theory. *)
+    This is the direction that actually matters for soundness: the contrapositive of
+    "[L] nonzero implies [Q_] nonzero", from the identity above plus [Q]'s integral-domain
+    structure ([Qmult_integral]), with no order theory.
+
+    The nondegeneracy hypotheses are [~ (D <> 0)] in the SETOID sense, [~ (D == 0)], not
+    Leibniz [D <> 0]. This distinction is not cosmetic and the Rocq kernel is what caught it:
+    [Q] is a representation type on which [==] ([Qeq]) is the mathematical equality and [=]
+    is structural equality of numerator/denominator pairs. [0#5] is [== 0] but is not [= 0],
+    so the Leibniz hypothesis [D1 <> 0] ADMITS [D1 := 0#5] -- under which the antecedent
+    [L1*L1*(D1*D1)*(D2*D2) == 0] holds for every [L1] while the conclusion [L1 == 0] fails at
+    [L1 := 1]. The lemma as first written here was therefore false, not merely unprovable.
+
+    RC-005 itself is unaffected: its hypothesis is [L1, L2 > 0] over the reals, which is
+    strictly stronger than either reading. The defect was in this file's transcription of it,
+    and is recorded under "Deliberate divergences" in formal/README.md. *)
 
 Lemma segment1_zero_implies_length_zero : forall (L1 D1 D2 : Q),
-  D1 <> 0 -> D2 <> 0 ->
+  ~ (D1 == 0) -> ~ (D2 == 0) ->
   L1 * L1 * (D1 * D1) * (D2 * D2) == 0 ->
   L1 == 0.
 Proof.
@@ -101,7 +113,7 @@ Proof.
 Qed.
 
 Lemma segment2_zero_implies_length_zero : forall (L2 D1 D2 : Q),
-  D1 <> 0 -> D2 <> 0 ->
+  ~ (D1 == 0) -> ~ (D2 == 0) ->
   L2 * L2 * (D1 * D1) * (D2 * D2) == 0 ->
   L2 == 0.
 Proof.
