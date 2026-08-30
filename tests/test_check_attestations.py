@@ -644,6 +644,7 @@ def test_isabelle_extractor_uses_a_temporary_child_and_planted_sorry(
         root = (audit_dir / "ROOT").read_text(encoding="utf-8")
         theory = (audit_dir / "OracleAudit.thy").read_text(encoding="utf-8")
         assert "quick_and_dirty = true" in root
+        assert 'imports "RoboCert.Planar2R"' in theory
         assert "sorry" in theory
         assert "Thm_Deps.all_oracles" in theory
         names = script.isabelle_theorem_names(_isabelle_statement())

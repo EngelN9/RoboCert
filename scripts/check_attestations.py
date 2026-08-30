@@ -329,7 +329,7 @@ def isabelle_oracles(session_dir: Path, statement_text: str) -> dict[str, list[s
             "  theories OracleAudit\n"
         )
         theory_text = f'''theory OracleAudit
-  imports Planar2R
+  imports "RoboCert.Planar2R"
 begin
 
 lemma {ISABELLE_PLANTED_CONTROL}: False

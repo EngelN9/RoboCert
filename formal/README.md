@@ -112,10 +112,11 @@ before the real declarations.
 **Isabelle: extractor implemented from measured output, not guessed.** Its allow-list is empty,
 so an entry must carry runtime evidence that all three real declarations have empty oracle sets.
 `isabelle_oracles` derives those names from the digest-bound statement file, builds a temporary
-child session importing `Planar2R`, and enables `quick_and_dirty` only there so a planted `sorry`
-theorem can prove the extractor sees `Pure.skip_proof`. The committed RoboCert session remains
-strict. Missing, duplicate, malformed, or unrecognised TSV output, a missing positive control,
-or any real oracle outside policy fails before evidence is emitted.
+child session importing the parent session's qualified `RoboCert.Planar2R`, and enables
+`quick_and_dirty` only there so a planted `sorry` theorem can prove the extractor sees
+`Pure.skip_proof`. The committed RoboCert session remains strict. Missing, duplicate, malformed,
+or unrecognised TSV output, a missing positive control, or any real oracle outside policy fails
+before evidence is emitted.
 
 The probe ran four rounds and is now **removed** — it had an answer, and a permanently
 failing step teaches people to ignore red. What it established, recorded here because a CI log
