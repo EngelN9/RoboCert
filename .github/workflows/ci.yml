@@ -259,6 +259,12 @@ jobs:
           end
           THY_EOF
           isabelle build -D /tmp/isabelle-probe -v
+          # Round two built cleanly -- so Thm_Deps.all_oracles exists and takes a thm list, the
+          # API question round one could not reach. But its `writeln` output never appeared:
+          # in batch mode messages go to the session build database, not to stdout. Round one
+          # said where, in the aside on its own failure ("see also isabelle build_log -H Error
+          # Probe"). Same tool, different message kind.
+          isabelle build_log -H Writeln Probe || isabelle build_log Probe
       # --require isabelle and --emit-evidence: see the equivalent notes in the rocq job.
       - name: Verify attestations (Isabelle must actually be present)
         run: python scripts/check_attestations.py --require isabelle --emit-evidence evidence
