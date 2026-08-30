@@ -161,8 +161,18 @@ jobs:
           fi
       # --require rocq makes an absent toolchain a hard failure. Without it this job
       # passes green when Rocq is missing, which is a worse signal than a red build.
+      # --emit-evidence captures what this run knows and the repository cannot reconstruct:
+      # the exact toolchain string that accepted the proof. Digests recompute from committed
+      # files any time; "which binary ran" does not. Without this the job proves the kernel
+      # passed and leaves nothing behind to promote `rocq` out of pending_systems with.
       - name: Verify attestations (Rocq must actually be present)
-        run: python scripts/check_attestations.py --require rocq
+        run: python scripts/check_attestations.py --require rocq --emit-evidence evidence
+      - name: Upload Rocq run evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: attestation-evidence-rocq
+          path: evidence/
+          if-no-files-found: error
 
   isabelle:
     name: Isabelle/HOL quantified semialgebraic cross-check
@@ -193,6 +203,12 @@ jobs:
           tar xzf isabelle.tar.gz
       - name: Add Isabelle to PATH
         run: echo "$PWD/Isabelle2025/bin" >> "$GITHUB_PATH"
-      # --require isabelle: see the equivalent note in the rocq job.
+      # --require isabelle and --emit-evidence: see the equivalent notes in the rocq job.
       - name: Verify attestations (Isabelle must actually be present)
-        run: python scripts/check_attestations.py --require isabelle
+        run: python scripts/check_attestations.py --require isabelle --emit-evidence evidence
+      - name: Upload Isabelle run evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: attestation-evidence-isabelle
+          path: evidence/
+          if-no-files-found: error

@@ -74,6 +74,31 @@ attestation: `formal/attestations/planar2r-exact-witness.json` still carries no
 recording the toolchain and digests from that specific successful run (`formal/AGENTS.md`
 rule 7).
 
+### What still blocks promoting Rocq and Isabelle
+
+`check_attestations.py --emit-evidence DIR` now captures what a successful kernel run knows
+and the repository cannot reconstruct: the exact toolchain string that accepted the proof.
+Digests recompute from committed files at any time; *which binary ran* is knowable only on the
+machine that ran it, and CI previously printed "record it with `kernel_accepted: true`" and
+discarded it. The `rocq` and `isabelle` jobs now write that evidence and upload it as a build
+artifact. It is gitignored, never committed — a checked-in copy would be a stale claim about a
+run that is over.
+
+That closes the recoverable half. **One gap remains, and it is what still blocks promotion:**
+neither kernel is interrogated for its axiom dependencies. Lean's entry carries a real `axioms`
+list because `scripts/check_lean_axioms.py` reads `#print axioms` output; there is no
+equivalent for the other two. Rocq would need `Print Assumptions` per lemma and Isabelle an
+equivalent, and until one exists the `axioms` field of an entry cannot be filled from a real
+run. Writing one anyway — including writing `[]` for Isabelle because the policy's allow-list
+happens to be empty — is exactly the fabrication rule 7 forbids. The evidence file states this
+in its own `not_an_attestation_entry` field, so the omission travels with the artifact rather
+than living only here.
+
+The axiom extraction is deliberately not written blind. Both prover CI jobs were authored on a
+machine with neither toolchain installed and needed three rounds of fixes before they ran; a
+fourth blind guess at `Print Assumptions` invocation and output parsing would repeat that,
+and unlike a build failure a mis-parsed axiom list could fail *open*.
+
 ## A layout asymmetry, recorded rather than hidden
 
 Lean's sources live directly under `formal/RoboCert/` (the original Phase 0.5a layout), while

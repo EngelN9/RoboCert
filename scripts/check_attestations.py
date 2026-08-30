@@ -114,6 +114,83 @@ def _check_isabelle(session_dir: Path) -> tuple[bool, str]:
     return True, "session built cleanly"
 
 
+def _toolchain_version(system: str) -> str | None:
+    """The version string of the binary that just ran.
+
+    This is the one piece of an attestation entry that CANNOT be reconstructed after the fact.
+    Digests can be recomputed from committed files at any time; which toolchain actually
+    accepted the proof is knowable only on the machine that ran it, which is why the evidence
+    file exists at all.
+    """
+    if system == "rocq":
+        command = _rocq_command()
+        if command is None:
+            return None
+        argv = [command[0], "--version"]
+    elif system == "isabelle":
+        tool = shutil.which("isabelle")
+        if tool is None:
+            return None
+        argv = [tool, "version"]
+    else:
+        return None
+    code, output = _run(argv, cwd=FORMAL_DIR)
+    if code != 0:
+        return None
+    first = output.strip().splitlines()
+    return first[0].strip() if first else None
+
+
+#: What an attestation entry needs that this evidence file does NOT establish. Kept as data so
+#: the omission travels with the artifact instead of living only in a docstring.
+EVIDENCE_GAPS = (
+    "axioms: neither kernel is interrogated for its axiom dependencies here. Rocq would need "
+    "`Print Assumptions` per lemma and Isabelle an equivalent; until one exists, the `axioms` "
+    "field of an entry cannot be filled from a real run, and writing one anyway is the "
+    "fabrication formal/AGENTS.md rule 7 forbids.",
+)
+
+
+def _evidence(
+    record: dict[str, Any],
+    record_path: Path,
+    system: str,
+    source: Path,
+    detail: str,
+) -> dict[str, Any]:
+    """Provenance from a kernel run that actually happened. NOT an attestation entry.
+
+    `check_attestations` used to print "record it with kernel_accepted: true" and discard
+    everything the promotion would need. This captures it instead. It is deliberately shaped so
+    it cannot be mistaken for, or pasted as, an `attestations.entries` element: the field names
+    differ, and `not_an_attestation_entry` says why.
+    """
+    statement = _resolve(record, "statements", system)
+    return {
+        "not_an_attestation_entry": [
+            "Provenance captured from a kernel run that really happened, for a system still "
+            "listed under pending_systems. It is NOT an attestation and must not be pasted "
+            "into attestations.entries as-is.",
+            *EVIDENCE_GAPS,
+        ],
+        "record": record_path.name,
+        "system": system,
+        "toolchain": _toolchain_version(system),
+        "kernel_result": detail,
+        "source_path": str(source.relative_to(REPO_ROOT).as_posix()),
+        "artifact_digest": _sha256_file(source),
+        "statement_path": (
+            str(statement.relative_to(REPO_ROOT).as_posix())
+            if statement is not None and statement.is_file()
+            else None
+        ),
+        "statement_digest": (
+            _sha256_file(statement) if statement is not None and statement.is_file() else None
+        ),
+        "certificate": record.get("certificate", {}),
+    }
+
+
 def _resolve(record: dict[str, Any], section: str, system: str) -> Path | None:
     """Resolve a repo-relative path the record declares for `system`, if it declares one."""
     relative = record.get(section, {}).get(system)
@@ -158,11 +235,19 @@ def _check_bound_digests(
     return errors
 
 
-def check_record(path: Path, require_available: Sequence[str] = ()) -> list[str]:
+def check_record(
+    path: Path,
+    require_available: Sequence[str] = (),
+    evidence_dir: Path | None = None,
+) -> list[str]:
     """Return diagnostics for one attestation record; empty means clean.
 
     `require_available` names systems whose toolchain MUST be present; an absent one
     becomes an error rather than a skip.
+
+    `evidence_dir`, when given, receives one JSON file per pending system whose kernel actually
+    ran and passed. Nothing is written for a system that was skipped or failed -- an evidence
+    file exists only where a kernel really ran.
     """
     errors: list[str] = []
     try:
@@ -229,6 +314,16 @@ def check_record(path: Path, require_available: Sequence[str] = ()) -> list[str]
                 f"{detail} -- record it with `kernel_accepted: true` and move it out of "
                 "pending_systems"
             )
+            if evidence_dir is not None:
+                evidence = _evidence(record, path, system, source, detail)
+                evidence_dir.mkdir(parents=True, exist_ok=True)
+                target = evidence_dir / f"{path.stem}.{system}.json"
+                target.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+                print(
+                    f"check_attestations: {path.name}: wrote run evidence for {system!r} to "
+                    f"{target} (toolchain {evidence['toolchain']!r}). Still NOT sufficient for "
+                    "an entry -- see 'not_an_attestation_entry' in the file."
+                )
         else:
             errors.append(f"{path}: pending system {system!r} is available but failed: {detail}")
 
@@ -258,6 +353,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             "purpose is to exercise that kernel, so the job cannot pass without it."
         ),
     )
+    parser.add_argument(
+        "--emit-evidence",
+        metavar="DIR",
+        help=(
+            "Write run provenance here for every pending system whose kernel actually ran and "
+            "passed: the toolchain version, which is not reconstructable afterwards, plus the "
+            "digests and the certificate binding. Provenance only -- see EVIDENCE_GAPS."
+        ),
+    )
     args = parser.parse_args(argv)
 
     if not ATTESTATIONS_DIR.is_dir():
@@ -269,9 +373,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"check_attestations: no attestation records found under {ATTESTATIONS_DIR}")
         return 0
 
+    evidence_dir = Path(args.emit_evidence) if args.emit_evidence else None
     all_errors: list[str] = []
     for record_path in records:
-        all_errors.extend(check_record(record_path, require_available=args.require))
+        all_errors.extend(
+            check_record(
+                record_path,
+                require_available=args.require,
+                evidence_dir=evidence_dir,
+            )
+        )
 
     if all_errors:
         for error in all_errors:

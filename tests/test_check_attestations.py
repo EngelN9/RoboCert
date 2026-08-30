@@ -153,3 +153,121 @@ def test_require_flag_fails_when_a_toolchain_is_absent(script: Any, tmp_path: Pa
     with_require = list(script.check_record(path, require_available=["rocq"]))
 
     assert any("REQUIRED to be available" in error for error in with_require)
+
+
+# ---------------------------------------------------------------------------------------
+# Run evidence
+#
+# The script used to print "record it with kernel_accepted: true" when a pending kernel
+# passed, and throw away everything the promotion needed. The toolchain version is the part
+# that cannot be recovered afterwards: digests recompute from committed files at any time,
+# but which binary accepted the proof is knowable only on the machine that ran it.
+#
+# Neither Rocq nor Isabelle is installed on the machine these tests were written on -- the
+# same fact `pending_systems` records -- so the kernel runner is stubbed. What is under test
+# is the evidence path, not the prover.
+# ---------------------------------------------------------------------------------------
+
+
+def _pending_rocq_record() -> dict[str, Any]:
+    record = _record()
+    record["pending_systems"] = {"rocq": {"reason": "stubbed in this test"}}
+    record["sources"]["rocq"] = _REAL_SOURCE
+    record["statements"]["rocq"] = _REAL_STATEMENT
+    record["certificate"] = {
+        "claim_hash": _WRONG_DIGEST,
+        "model_hash": _WRONG_DIGEST,
+        "checker_id": "robocert.planar2r_exact_witness.attested",
+        "checker_version": "0.1.0",
+    }
+    return record
+
+
+def _stub_passing_rocq(script: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(script, "_rocq_command", lambda: ["rocq", "compile"])
+    monkeypatch.setattr(script, "_check_rocq", lambda _source: (True, "compiled cleanly"))
+    monkeypatch.setattr(
+        script, "_toolchain_version", lambda _system: "The Rocq Prover, version 9.2.0"
+    )
+
+
+def test_evidence_is_written_when_a_pending_kernel_passes(
+    script: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _stub_passing_rocq(script, monkeypatch)
+    path = tmp_path / "record.json"
+    path.write_text(json.dumps(_pending_rocq_record()), encoding="utf-8")
+    evidence_dir = tmp_path / "evidence"
+
+    script.check_record(path, evidence_dir=evidence_dir)
+
+    written = json.loads((evidence_dir / "record.rocq.json").read_text(encoding="utf-8"))
+    assert written["system"] == "rocq"
+    assert written["toolchain"] == "The Rocq Prover, version 9.2.0"
+    assert written["artifact_digest"].startswith("sha256:")
+    assert written["statement_digest"].startswith("sha256:")
+    assert written["certificate"]["checker_version"] == "0.1.0"
+
+
+def test_evidence_says_it_is_not_an_attestation_entry(
+    script: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The one property that stops this becoming a fabricated entry by copy-paste.
+
+    Its field names deliberately do not match `attestation._ENTRY_FIELDS`, it carries no
+    `kernel_accepted`, and it names the axiom gap that still blocks promotion. Pasting it into
+    `attestations.entries` would be rejected by the policy rather than silently accepted.
+    """
+    from robocert.attestation import _ENTRY_FIELDS
+
+    _stub_passing_rocq(script, monkeypatch)
+    path = tmp_path / "record.json"
+    path.write_text(json.dumps(_pending_rocq_record()), encoding="utf-8")
+    evidence_dir = tmp_path / "evidence"
+
+    script.check_record(path, evidence_dir=evidence_dir)
+    written = json.loads((evidence_dir / "record.rocq.json").read_text(encoding="utf-8"))
+
+    assert "kernel_accepted" not in written
+    assert set(written) != _ENTRY_FIELDS
+    assert not set(written) >= _ENTRY_FIELDS
+    disclosure = " ".join(written["not_an_attestation_entry"])
+    assert "NOT an attestation" in disclosure
+    assert "axioms" in disclosure
+
+
+def test_no_evidence_is_written_when_the_toolchain_is_absent(script: Any, tmp_path: Path) -> None:
+    """Nothing is invented. An unavailable kernel leaves no trace claiming it ran."""
+    path = tmp_path / "record.json"
+    path.write_text(json.dumps(_pending_rocq_record()), encoding="utf-8")
+    evidence_dir = tmp_path / "evidence"
+
+    script.check_record(path, evidence_dir=evidence_dir)
+
+    assert not evidence_dir.exists()
+
+
+def test_no_evidence_is_written_when_the_kernel_fails(
+    script: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failing kernel is an error, not provenance."""
+    monkeypatch.setattr(script, "_rocq_command", lambda: ["rocq", "compile"])
+    monkeypatch.setattr(script, "_check_rocq", lambda _source: (False, "compilation failed"))
+    path = tmp_path / "record.json"
+    path.write_text(json.dumps(_pending_rocq_record()), encoding="utf-8")
+    evidence_dir = tmp_path / "evidence"
+
+    errors = list(script.check_record(path, evidence_dir=evidence_dir))
+
+    assert any("available but failed" in error for error in errors)
+    assert not evidence_dir.exists()
+
+
+def test_evidence_is_opt_in(script: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without --emit-evidence the behaviour is exactly what it was before."""
+    _stub_passing_rocq(script, monkeypatch)
+    path = tmp_path / "record.json"
+    path.write_text(json.dumps(_pending_rocq_record()), encoding="utf-8")
+
+    assert list(script.check_record(path)) == []
+    assert list(tmp_path.iterdir()) == [path]
