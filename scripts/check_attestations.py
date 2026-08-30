@@ -335,7 +335,7 @@ begin
 lemma {ISABELLE_PLANTED_CONTROL}: False
   sorry
 
-ML \u2039
+ML \\<open>
   fun oracle_names name =
     Proof_Context.get_thm @{{context}} name
     |> single
@@ -349,7 +349,7 @@ ML \u2039
     :: map (fn name => (name, oracle_names name)) declarations;
   fun render (name, oracles) = name ^ "\\t" ^ space_implode "," oracles;
   File.write (Path.explode "{output_path.as_posix()}") (cat_lines (map render results));
-\u203a
+\\<close>
 
 end
 '''

@@ -646,6 +646,8 @@ def test_isabelle_extractor_uses_a_temporary_child_and_planted_sorry(
         assert "quick_and_dirty = true" in root
         assert 'imports "RoboCert.Planar2R"' in theory
         assert "sorry" in theory
+        assert "ML \\<open>" in theory
+        assert "\\<close>" in theory
         assert "Thm_Deps.all_oracles" in theory
         names = script.isabelle_theorem_names(_isabelle_statement())
         lines = [f"{script.ISABELLE_PLANTED_CONTROL}\t{script.ISABELLE_SKIP_PROOF}"]
