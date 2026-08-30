@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import dataclasses
 import importlib.util
-import shutil
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -40,11 +39,6 @@ from robocert.specification import (
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _SCRIPT = _REPO_ROOT / "scripts" / "check_lean_conformance.py"
 
-_needs_lean = pytest.mark.skipif(
-    shutil.which("lake") is None,
-    reason="Lean toolchain absent; CI's `formal` job runs this with --require-lean",
-)
-
 
 def _load_script() -> Any:
     spec = importlib.util.spec_from_file_location("check_lean_conformance", _SCRIPT)
@@ -55,6 +49,16 @@ def _load_script() -> Any:
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
+
+
+_COLLECTION_PROBE = _load_script().probe_lean_toolchain()
+_needs_lean = pytest.mark.skipif(
+    not _COLLECTION_PROBE.available,
+    reason=(
+        "Lean toolchain unrunnable; CI's `formal` job uses --require-lean: "
+        f"{_COLLECTION_PROBE.diagnostic}"
+    ),
+)
 
 
 @pytest.fixture(scope="module")
@@ -356,15 +360,110 @@ def test_require_lean_fails_when_the_toolchain_is_absent(
     script: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The false-green the `rocq` job shipped on its first run, made impossible here."""
-    monkeypatch.setattr(script.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(
+        script,
+        "probe_lean_toolchain",
+        lambda _explicit=None: script.LeanToolchainProbe(None, None, "planted absent toolchain"),
+    )
     assert script.main(["--require-lean"]) == 1
 
 
 def test_absent_toolchain_without_the_flag_reports_and_exits_zero(
     script: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(script.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(
+        script,
+        "probe_lean_toolchain",
+        lambda _explicit=None: script.LeanToolchainProbe(None, None, "planted absent toolchain"),
+    )
     assert script.main([]) == 0
+
+
+def test_lake_override_precedence_and_successful_probe(
+    script: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setenv("ROBOCERT_LAKE", "environment-lake")
+    monkeypatch.setattr(
+        script.shutil,
+        "which",
+        lambda command: f"resolved-{command}" if command != "lake" else "path-lake",
+    )
+
+    def run(command: list[str], **_kwargs: object) -> SimpleNamespace:
+        calls.append(command)
+        return SimpleNamespace(returncode=0, stdout="Lean (version 4.33.1)\n", stderr="")
+
+    monkeypatch.setattr(script.subprocess, "run", run)
+
+    explicit = script.probe_lean_toolchain("cli-lake")
+    environment = script.probe_lean_toolchain()
+
+    assert explicit.lake == "resolved-cli-lake"
+    assert environment.lake == "resolved-environment-lake"
+    assert explicit.available and environment.available
+    assert calls == [
+        ["resolved-cli-lake", "env", "lean", "--version"],
+        ["resolved-environment-lake", "env", "lean", "--version"],
+    ]
+
+
+def test_path_shim_that_cannot_run_pinned_lean_is_unavailable(
+    script: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("ROBOCERT_LAKE", raising=False)
+    monkeypatch.setattr(script.shutil, "which", lambda _command: "broken-lake-shim")
+    monkeypatch.setattr(
+        script.subprocess,
+        "run",
+        lambda *_a, **_k: SimpleNamespace(returncode=1, stdout="", stderr="no installed toolchain"),
+    )
+
+    probe = script.probe_lean_toolchain()
+
+    assert probe.lake == "broken-lake-shim"
+    assert not probe.available
+    assert "no installed toolchain" in probe.diagnostic
+
+
+def test_elan_proxy_does_not_auto_install_missing_pin(
+    script: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lake = tmp_path / "lake.exe"
+    elan = tmp_path / "elan.exe"
+    lake.touch()
+    elan.touch()
+    monkeypatch.delenv("ROBOCERT_LAKE", raising=False)
+    monkeypatch.setattr(script.shutil, "which", lambda _command: str(lake))
+    calls: list[list[str]] = []
+
+    def run(command: list[str], **_kwargs: object) -> SimpleNamespace:
+        calls.append(command)
+        assert command == [str(elan), "toolchain", "list"]
+        return SimpleNamespace(returncode=0, stdout="no installed toolchains\n", stderr="")
+
+    monkeypatch.setattr(script.subprocess, "run", run)
+
+    probe = script.probe_lean_toolchain()
+
+    assert not probe.available
+    assert "is not installed according to elan" in probe.diagnostic
+    assert calls == [[str(elan), "toolchain", "list"]]
+
+
+def test_main_passes_cli_lake_override_to_probe(
+    script: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[str | None] = []
+
+    def probe(explicit: str | None = None) -> Any:
+        seen.append(explicit)
+        return script.LeanToolchainProbe(None, None, "planted unavailable")
+
+    monkeypatch.setattr(script, "probe_lean_toolchain", probe)
+
+    assert script.main(["--lake", "C:/pinned/lake.exe"]) == 0
+    assert seen == ["C:/pinned/lake.exe"]
 
 
 def test_emit_only_writes_the_source_without_running_lean(

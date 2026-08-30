@@ -84,8 +84,9 @@ discarded it. The `rocq` and `isabelle` jobs now write that evidence and upload 
 artifact. It is gitignored, never committed — a checked-in copy would be a stale claim about a
 run that is over.
 
-That closes the recoverable half. The other half is axiom dependencies, and the two systems are
-now in different places.
+That closes the recoverable half. Per-declaration axiom/oracle extraction is now implemented for
+both systems. Promotion still requires a fresh exact-head run of these hardened paths, review of
+both evidence artifacts, and manual transcription; the script never self-promotes an entry.
 
 **Rocq: extracted and checked**, confirmed on a real kernel — the first CI run reported
 "axiom audit clean for 5 declaration(s) (positive control passed)", so the extractor demonstrably
@@ -108,14 +109,13 @@ must report it. A parser that cannot see a deliberately axiom-dependent proof ha
 right to report `[]` for a real one. It runs on the same binary, in the same job, immediately
 before the real declarations.
 
-**Isabelle: probed, not guessed.** There is no extractor yet, and its allow-list is empty — so an
-entry would have to assert `axioms: []`, which is exactly the assertion that must come from a run
-rather than from what the policy expects. Writing it because the policy happens to expect it is
-the fabrication rule 7 names. The `isabelle` CI job carries a diagnostic-only step that prints
-what that Isabelle's introspection actually emits for a clean lemma and a deliberately `sorry`-ed
-one side by side; the extractor gets written against the answer. This is the same move as
-`438367f` ("Probe the Rocq 9 entry point"), which is what ended three rounds of blind guessing at
-these jobs.
+**Isabelle: extractor implemented from measured output, not guessed.** Its allow-list is empty,
+so an entry must carry runtime evidence that all three real declarations have empty oracle sets.
+`isabelle_oracles` derives those names from the digest-bound statement file, builds a temporary
+child session importing `Planar2R`, and enables `quick_and_dirty` only there so a planted `sorry`
+theorem can prove the extractor sees `Pure.skip_proof`. The committed RoboCert session remains
+strict. Missing, duplicate, malformed, or unrecognised TSV output, a missing positive control,
+or any real oracle outside policy fails before evidence is emitted.
 
 The probe ran four rounds and is now **removed** — it had an answer, and a permanently
 failing step teaches people to ignore red. What it established, recorded here because a CI log
@@ -135,19 +135,11 @@ Two of those matter beyond the extractor.
 output is therefore a second line of defence, not the first — a session containing one does not
 build at all unless `quick_and_dirty` is set, and `formal/isabelle/ROOT` does not set it.
 
-**The extractor is now writable without guessing.** `Thm_Deps.all_oracles` returns an empty list
-for an oracle-free theorem and `Pure.skip_proof` for a cheated one, so it discriminates exactly
-the case that matters, and `Pure.skip_proof` is the positive control the Rocq extractor gets from
-its planted axiom. What is left is mechanical and unwritten: build a temporary session importing
-`RoboCert.Planar2R`, run `all_oracles` over the three lemmas named in
-`formal/attestations/statements/isabelle.txt`, and parse oracle names out of that tuple shape —
-failing closed on anything unrecognised, exactly as the Rocq parser does. Until that exists,
-Isabelle's evidence keeps the axiom gap and Isabelle stays in `pending_systems`.
-
-So Isabelle's evidence file still carries the axiom gap and Rocq's no longer does — the
-disclosure shrinks exactly as far as the evidence improves. Both still carry the transcription
-gap: an entry is written by hand from an evidence file, so moving a system out of
-`pending_systems` stays a reviewed edit rather than a scripted one.
+`Thm_Deps.all_oracles` returns an empty list for an oracle-free theorem and `Pure.skip_proof` for
+a cheated one, so the control discriminates exactly the case that matters. A successful fresh CI
+artifact will therefore drop Isabelle's axiom-gap disclosure just as Rocq's does. Both retain the
+transcription gap: an entry is written by hand from reviewed evidence, so moving a system out of
+`pending_systems` stays a human edit rather than a scripted one.
 
 ## A layout asymmetry, recorded rather than hidden
 

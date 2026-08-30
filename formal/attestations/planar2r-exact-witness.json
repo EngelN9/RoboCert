@@ -10,17 +10,17 @@
     "outside `attestations` (`sources`, `statements`, `pending_systems`) are repo-side",
     "bookkeeping and are NOT part of the wire format that src/robocert/attestation.py reads.",
     "",
-    "Only the lean4 entry is real: `lake build` in formal/ was run and",
+    "Only the lean4 entry is currently committed: `lake build` in formal/ was run and",
     "scripts/check_lean_axioms.py confirmed RoboCert.exactWitness_sound depends on exactly",
     "[propext, Classical.choice, Quot.sound] -- no sorryAx. That theorem is the soundness",
     "statement for exactly the checker this instance's certificate uses.",
     "",
-    "rocq and isabelle are NOT attested: neither toolchain was available on the machine that",
-    "authored their sources, so neither kernel has ever run on them. Inventing a",
-    "kernel_accepted:true entry for either would be a fabricated verification result -- see",
-    "AGENTS.md Sec22.5 (fail closed), Sec66 (no overclaiming), and formal/AGENTS.md rule 7.",
-    "They stay under pending_systems until a real kernel run says otherwise; the CI jobs",
-    "`rocq` and `isabelle` in .github/workflows/ci.yml are the first attempt.",
+    "rocq and isabelle are NOT yet attested. Both kernels have built in exact-head CI, and",
+    "Rocq's per-declaration axiom extractor has passed its planted positive control. This",
+    "revision adds equivalent Isabelle oracle extraction and makes `--require SYSTEM` rerun",
+    "a prover after promotion. Fresh exact-head evidence from those hardened paths must still",
+    "be reviewed before either entry is transcribed. Inventing entries from older or partial",
+    "evidence would violate AGENTS.md Sec22.5, Sec66, and formal/AGENTS.md rule 7.",
     "",
     "Consequence, verified by scripts/check_attestations.py and pinned by",
     "tests/test_attestation.py: feeding this record's `attestations` block into",
@@ -64,10 +64,10 @@
   },
   "pending_systems": {
     "rocq": {
-      "reason": "Rocq toolchain unavailable on the machine that authored the source; never run"
+      "reason": "Prior exact-head CI built the kernel and extracted clean axioms; awaiting fresh hardened-path evidence and reviewed transcription"
     },
     "isabelle": {
-      "reason": "Isabelle toolchain unavailable on the machine that authored the source; never run"
+      "reason": "Prior exact-head CI built the kernel; awaiting the new oracle extractor's planted-control evidence and reviewed transcription"
     }
   }
 }

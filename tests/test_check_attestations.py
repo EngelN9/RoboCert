@@ -137,7 +137,7 @@ def test_committed_record_is_clean(script: Any) -> None:
 def test_require_flag_fails_when_a_toolchain_is_absent(script: Any, tmp_path: Path) -> None:
     """A CI job named after a prover must not pass green when that prover is missing.
 
-    The first real run of the `rocq` CI job did exactly that: opam installed Rocq 9.0.0,
+    The first real run of the `rocq` CI job did exactly that: opam installed Rocq,
     its PATH never reached the verification step, the script reported UNAVAILABLE, and the
     job went green having verified nothing. `--require` is what makes that impossible.
     """
@@ -435,7 +435,7 @@ def test_extraction_failure_blocks_the_record(
 
     errors = list(script.check_record(path))
 
-    assert any("axiom extraction failed" in error for error in errors)
+    assert any("axiom/oracle extraction failed" in error for error in errors)
 
 
 def test_evidence_records_extracted_axioms_and_drops_that_gap(
@@ -457,3 +457,268 @@ def test_evidence_records_extracted_axioms_and_drops_that_gap(
     assert script.TRANSCRIPTION_GAP in disclosure
     # Still not an entry: promotion remains a reviewed human edit.
     assert "kernel_accepted" not in written
+
+
+# ---------------------------------------------------------------------------------------
+# Promoted-system revalidation
+# ---------------------------------------------------------------------------------------
+
+
+def _promoted_rocq_record() -> dict[str, Any]:
+    record = _pending_rocq_record()
+    record["pending_systems"] = {}
+    template = record["attestations"]["entries"][0]
+    record["attestations"]["entries"].append(
+        {
+            **template,
+            "system": "rocq",
+            "toolchain": "The Rocq Prover, version 9.2.0",
+            "axioms": [],
+        }
+    )
+    return record
+
+
+def test_require_reruns_a_promoted_kernel(
+    script: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Promotion must not turn a real prover CI job into a digest-only false green."""
+    _stub_passing_rocq(script, monkeypatch)
+    calls: list[Path] = []
+
+    def check(source: Path) -> tuple[bool, str]:
+        calls.append(source)
+        return True, "compiled cleanly"
+
+    monkeypatch.setattr(script, "_check_rocq", check)
+    path = tmp_path / "record.json"
+    path.write_text(json.dumps(_promoted_rocq_record()), encoding="utf-8")
+
+    errors = script.check_record(path, require_available=["rocq"])
+
+    assert errors == []
+    assert len(calls) == 1
+
+
+def test_promoted_toolchain_mismatch_fails_closed(
+    script: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _stub_passing_rocq(script, monkeypatch)
+    record = _promoted_rocq_record()
+    record["attestations"]["entries"][1]["toolchain"] = "different toolchain"
+    path = tmp_path / "record.json"
+    path.write_text(json.dumps(record), encoding="utf-8")
+
+    errors = script.check_record(path, require_available=["rocq"])
+
+    assert any("toolchain mismatch on kernel re-run" in error for error in errors)
+
+
+def test_promoted_axiom_mismatch_fails_closed(
+    script: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _stub_passing_rocq(script, monkeypatch)
+    record = _promoted_rocq_record()
+    record["attestations"]["entries"][1]["axioms"] = ["functional_extensionality"]
+    path = tmp_path / "record.json"
+    path.write_text(json.dumps(record), encoding="utf-8")
+
+    errors = script.check_record(path, require_available=["rocq"])
+
+    assert any("axiom/oracle mismatch on kernel re-run" in error for error in errors)
+
+
+def test_failed_promoted_kernel_emits_no_evidence(
+    script: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _stub_passing_rocq(script, monkeypatch)
+    monkeypatch.setattr(script, "_check_rocq", lambda _source: (False, "planted failure"))
+    path = tmp_path / "record.json"
+    path.write_text(json.dumps(_promoted_rocq_record()), encoding="utf-8")
+    evidence_dir = tmp_path / "evidence"
+
+    errors = script.check_record(path, require_available=["rocq"], evidence_dir=evidence_dir)
+
+    assert any("planted failure" in error for error in errors)
+    assert not evidence_dir.exists()
+
+
+# ---------------------------------------------------------------------------------------
+# Isabelle oracle extraction
+# ---------------------------------------------------------------------------------------
+
+
+def _isabelle_statement() -> str:
+    return (_REPO_ROOT / "formal" / "attestations" / "statements" / "isabelle.txt").read_text(
+        encoding="utf-8"
+    )
+
+
+def _pending_isabelle_record() -> dict[str, Any]:
+    record = _record()
+    record["pending_systems"] = {"isabelle": {"reason": "stubbed"}}
+    record["sources"]["isabelle"] = "formal/isabelle/RoboCert/Planar2R.thy"
+    record["statements"]["isabelle"] = "formal/attestations/statements/isabelle.txt"
+    return record
+
+
+def _stub_passing_isabelle(script: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(script, "_tool_available", lambda name: name == "isabelle")
+    monkeypatch.setattr(script, "_check_isabelle", lambda _session: (True, "built cleanly"))
+    monkeypatch.setattr(script, "_toolchain_version", lambda _system: "Isabelle2025")
+    monkeypatch.setattr(
+        script,
+        "isabelle_oracles",
+        lambda *_a, **_k: {
+            "singleton_box_admits_its_point": [],
+            "bounded_existential_transport": [],
+            "empty_box_forces_false": [],
+        },
+    )
+
+
+def test_isabelle_theorem_names_come_from_the_statement_file(script: Any) -> None:
+    assert script.isabelle_theorem_names(_isabelle_statement()) == [
+        "singleton_box_admits_its_point",
+        "bounded_existential_transport",
+        "empty_box_forces_false",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("label", "output"),
+    [
+        ("empty", ""),
+        ("malformed", "only-one-field\n"),
+        ("unknown", "unknown\t\n"),
+        (
+            "duplicate",
+            "robocert_planted_control\tPure.skip_proof\n"
+            "robocert_planted_control\tPure.skip_proof\n",
+        ),
+        ("malformed oracle", "robocert_planted_control\tbad oracle\n"),
+    ],
+)
+def test_isabelle_oracle_parser_rejects_unrecognised_output(
+    script: Any, label: str, output: str
+) -> None:
+    with pytest.raises(script.AxiomExtractionError):
+        script.parse_isabelle_oracles(output, ["real_theorem"])
+    assert label
+
+
+def test_isabelle_oracle_parser_requires_every_real_theorem(script: Any) -> None:
+    output = "robocert_planted_control\tPure.skip_proof\n"
+    with pytest.raises(script.AxiomExtractionError, match="omitted"):
+        script.parse_isabelle_oracles(output, ["real_theorem"])
+
+
+def test_isabelle_oracle_parser_requires_skip_proof_positive_control(script: Any) -> None:
+    output = "robocert_planted_control\t\nreal_theorem\t\n"
+    with pytest.raises(script.AxiomExtractionError, match="positive control FAILED"):
+        script.parse_isabelle_oracles(output, ["real_theorem"])
+
+
+def test_isabelle_oracle_parser_returns_per_declaration_results(script: Any) -> None:
+    output = (
+        "robocert_planted_control\tPure.skip_proof\nfirst\t\nsecond\tNamed_Theorems.some_oracle\n"
+    )
+    assert script.parse_isabelle_oracles(output, ["first", "second"]) == {
+        "first": [],
+        "second": ["Named_Theorems.some_oracle"],
+    }
+
+
+def test_isabelle_extractor_uses_a_temporary_child_and_planted_sorry(
+    script: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        script.shutil,
+        "which",
+        lambda name: "isabelle" if name == "isabelle" else None,
+    )
+
+    def run(cmd: list[str], *, cwd: Path) -> tuple[int, str]:
+        del cwd
+        audit_dir = Path(cmd[cmd.index("-D", cmd.index("-D") + 1) + 1])
+        root = (audit_dir / "ROOT").read_text(encoding="utf-8")
+        theory = (audit_dir / "OracleAudit.thy").read_text(encoding="utf-8")
+        assert "quick_and_dirty = true" in root
+        assert "sorry" in theory
+        assert "Thm_Deps.all_oracles" in theory
+        names = script.isabelle_theorem_names(_isabelle_statement())
+        lines = [f"{script.ISABELLE_PLANTED_CONTROL}\t{script.ISABELLE_SKIP_PROOF}"]
+        lines.extend(f"{name}\t" for name in names)
+        (audit_dir / "oracles.tsv").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return 0, ""
+
+    monkeypatch.setattr(script, "_run", run)
+    result = script.isabelle_oracles(tmp_path, _isabelle_statement())
+    assert result == {
+        "singleton_box_admits_its_point": [],
+        "bounded_existential_transport": [],
+        "empty_box_forces_false": [],
+    }
+
+
+def test_isabelle_extraction_failure_emits_no_evidence(
+    script: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    record = _pending_isabelle_record()
+    _stub_passing_isabelle(script, monkeypatch)
+    monkeypatch.setattr(
+        script,
+        "isabelle_oracles",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            script.AxiomExtractionError("missing Pure.skip_proof")
+        ),
+    )
+    path = tmp_path / "record.json"
+    path.write_text(json.dumps(record), encoding="utf-8")
+    evidence_dir = tmp_path / "evidence"
+
+    errors = script.check_record(path, evidence_dir=evidence_dir)
+
+    assert any("missing Pure.skip_proof" in error for error in errors)
+    assert not evidence_dir.exists()
+
+
+def test_isabelle_evidence_records_clean_oracles_and_drops_axiom_gap(
+    script: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _stub_passing_isabelle(script, monkeypatch)
+    path = tmp_path / "record.json"
+    path.write_text(json.dumps(_pending_isabelle_record()), encoding="utf-8")
+    evidence_dir = tmp_path / "evidence"
+
+    errors = script.check_record(path, evidence_dir=evidence_dir)
+
+    assert errors == []
+    written = json.loads((evidence_dir / "record.isabelle.json").read_text(encoding="utf-8"))
+    assert written["toolchain"] == "Isabelle2025"
+    assert written["declaration_axioms"] == {
+        "singleton_box_admits_its_point": [],
+        "bounded_existential_transport": [],
+        "empty_box_forces_false": [],
+    }
+    assert script.AXIOM_GAP not in " ".join(written["not_an_attestation_entry"])
+
+
+def test_unexpected_isabelle_oracle_fails_and_emits_no_evidence(
+    script: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _stub_passing_isabelle(script, monkeypatch)
+    monkeypatch.setattr(
+        script,
+        "isabelle_oracles",
+        lambda *_a, **_k: {"singleton_box_admits_its_point": ["Bad.oracle"]},
+    )
+    path = tmp_path / "record.json"
+    path.write_text(json.dumps(_pending_isabelle_record()), encoding="utf-8")
+    evidence_dir = tmp_path / "evidence"
+
+    errors = script.check_record(path, evidence_dir=evidence_dir)
+
+    assert any("outside the policy allow-list" in error for error in errors)
+    assert any("Bad.oracle" in error for error in errors)
+    assert not evidence_dir.exists()

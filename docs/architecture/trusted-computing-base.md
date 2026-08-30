@@ -88,10 +88,12 @@ a statement with a given digest at some point, not a live guarantee.
 `src/robocert/`. The kernels prove properties of those models. The thing that actually runs
 is the Python.
 
-Nothing in `formal/` establishes that a model and the Python it models agree. That
-correspondence is established by differential testing against shared conformance vectors, not
-by proof — this is planned but not yet built (tracked as future work; not to be confused with
-this phase's own designation). A reader who forgets this will overstate what the layer buys.
+Nothing in `formal/` proves that a model and the Python it models agree. The current finite
+bridge is `scripts/check_lean_conformance.py`: 18 shared claim/certificate vectors must produce
+the same verdict in the Lean checker model and the shipped Python checker. This is differential
+evidence, not equivalence, and says nothing about untested inputs or deliberately unmodelled
+payload parsing, metadata/hash checks, and attestation handling. A reader who forgets this will
+overstate what the layer buys.
 The same applies to `Claim.FormulaVarsQuantified` in `formal/RoboCert/Wellformed.lean`, which
 is asserted to follow from Python's claim validation rather than derived from it, and to the
 Rocq/Isabelle files, which state supporting algebraic and quantifier facts about the RC-005

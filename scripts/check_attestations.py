@@ -14,9 +14,11 @@ For each record under `formal/attestations/`:
    stale one standing. This is the check the module docstring previously *claimed* while the
    code performed only the `kernel_accepted` test -- an overclaim in a guard, fixed here and
    pinned by `tests/test_attestation.py`.
-2. **Every pending system with a runnable toolchain is actually compiled**, and its output
-   scanned for an admitted/`sorry`-ed proof.
-3. **Every pending system without a toolchain is reported and skipped.** Nothing is invented.
+2. **Every pending or attested supported system with a runnable toolchain is actually
+   compiled**, and its assumptions/oracles are extracted with a planted positive control.
+3. **Every pending or attested supported system without a toolchain is reported and skipped.**
+   Nothing is invented. `--require SYSTEM` makes that skip a hard failure and forces the same
+   re-run even after the system has moved out of `pending_systems`.
 4. The record's coverage is compared against the real `AttestationPolicy`, and the resulting
    verdict is printed.
 
@@ -120,6 +122,10 @@ class AxiomExtractionError(RuntimeError):
 _ASSUMPTION_SECTIONS = frozenset({"Axioms:", "Parameters:", "Variables:"})
 _CLOSED = "Closed under the global context"
 _LEMMA_RE = re.compile(r"^Lemma\s+(\w+)", re.MULTILINE)
+_ISABELLE_LEMMA_RE = re.compile(r"^lemma\s+(\w+)\s*:", re.MULTILINE)
+_ISABELLE_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_'.]*$")
+ISABELLE_PLANTED_CONTROL = "robocert_planted_control"
+ISABELLE_SKIP_PROOF = "Pure.skip_proof"
 
 
 def rocq_lemma_names(statement_text: str) -> list[str]:
@@ -243,6 +249,136 @@ def rocq_axioms(source: Path, statement_text: str) -> dict[str, list[str]]:
     }
 
 
+def isabelle_theorem_names(statement_text: str) -> list[str]:
+    """The declarations to audit, derived from the digest-bound Isabelle statement file."""
+    names = _ISABELLE_LEMMA_RE.findall(statement_text)
+    if not names:
+        raise AxiomExtractionError(
+            "no `lemma <name>:` declarations found in the Isabelle statement file. An empty "
+            "audit set is never accepted."
+        )
+    if len(names) != len(set(names)):
+        raise AxiomExtractionError(
+            f"duplicate theorem names in the Isabelle statement file: {names}"
+        )
+    return names
+
+
+def parse_isabelle_oracles(output: str, theorem_names: Sequence[str]) -> dict[str, list[str]]:
+    """Parse the temporary audit session's exact TSV protocol, failing closed on drift."""
+    expected = {ISABELLE_PLANTED_CONTROL, *theorem_names}
+    found: dict[str, list[str]] = {}
+    if not output:
+        raise AxiomExtractionError("Isabelle oracle audit produced no output file")
+
+    for line_number, line in enumerate(output.splitlines(), start=1):
+        fields = line.split("\t")
+        if len(fields) != 2:
+            raise AxiomExtractionError(
+                f"malformed Isabelle oracle output at line {line_number}: {line!r}"
+            )
+        declaration, encoded = fields
+        if declaration not in expected:
+            raise AxiomExtractionError(
+                f"unrecognised declaration in Isabelle oracle output: {declaration!r}"
+            )
+        if declaration in found:
+            raise AxiomExtractionError(
+                f"duplicate declaration in Isabelle oracle output: {declaration!r}"
+            )
+        names = [] if encoded == "" else encoded.split(",")
+        if any(_ISABELLE_NAME_RE.fullmatch(name) is None for name in names):
+            raise AxiomExtractionError(f"malformed oracle name(s) for {declaration!r}: {names!r}")
+        if len(names) != len(set(names)):
+            raise AxiomExtractionError(f"duplicate oracle name(s) for {declaration!r}: {names!r}")
+        found[declaration] = sorted(names)
+
+    missing = sorted(expected - set(found))
+    if missing:
+        raise AxiomExtractionError(
+            f"Isabelle oracle output omitted required declaration(s): {missing}"
+        )
+    planted = found.pop(ISABELLE_PLANTED_CONTROL)
+    if planted != [ISABELLE_SKIP_PROOF]:
+        raise AxiomExtractionError(
+            "positive control FAILED: the deliberately sorry-ed theorem must report exactly "
+            f"{ISABELLE_SKIP_PROOF!r}, got {planted!r}"
+        )
+    return {name: found[name] for name in theorem_names}
+
+
+def isabelle_oracles(session_dir: Path, statement_text: str) -> dict[str, list[str]]:
+    """Extract theorem oracles in a temporary quick-and-dirty child session.
+
+    The committed RoboCert session remains strict. Only this throwaway audit child enables
+    `quick_and_dirty`, solely so a planted `sorry` theorem can prove that
+    `Thm_Deps.all_oracles` detects `Pure.skip_proof` before clean results are trusted.
+    """
+    tool = shutil.which("isabelle")
+    if tool is None:
+        raise AxiomExtractionError("no isabelle on PATH")
+    theorem_names = isabelle_theorem_names(statement_text)
+    ml_names = ", ".join(f'"{name}"' for name in theorem_names)
+
+    with tempfile.TemporaryDirectory(prefix="robocert-isabelle-audit-") as directory:
+        audit_dir = Path(directory)
+        output_path = audit_dir / "oracles.tsv"
+        root_text = (
+            "session RoboCert_Oracle_Audit = RoboCert +\n"
+            "  options [document = false, quick_and_dirty = true]\n"
+            "  theories OracleAudit\n"
+        )
+        theory_text = f'''theory OracleAudit
+  imports Planar2R
+begin
+
+lemma {ISABELLE_PLANTED_CONTROL}: False
+  sorry
+
+ML \u2039
+  fun oracle_names name =
+    Proof_Context.get_thm @{{context}} name
+    |> single
+    |> Thm_Deps.all_oracles
+    |> map (fst o fst)
+    |> sort_strings
+    |> distinct (op =);
+  val declarations = [{ml_names}];
+  val results =
+    ("{ISABELLE_PLANTED_CONTROL}", oracle_names "{ISABELLE_PLANTED_CONTROL}")
+    :: map (fn name => (name, oracle_names name)) declarations;
+  fun render (name, oracles) = name ^ "\\t" ^ space_implode "," oracles;
+  File.write (Path.explode "{output_path.as_posix()}") (cat_lines (map render results));
+\u203a
+
+end
+'''
+        (audit_dir / "ROOT").write_text(root_text, encoding="utf-8", newline="\n")
+        (audit_dir / "OracleAudit.thy").write_text(theory_text, encoding="utf-8", newline="\n")
+        code, output = _run(
+            [
+                tool,
+                "build",
+                "-D",
+                str(session_dir),
+                "-D",
+                str(audit_dir),
+                "-v",
+                "RoboCert_Oracle_Audit",
+            ],
+            cwd=FORMAL_DIR,
+        )
+        if code != 0:
+            raise AxiomExtractionError(f"temporary Isabelle oracle session failed:\n{output}")
+        try:
+            extracted = output_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise AxiomExtractionError(
+                f"temporary Isabelle oracle session wrote no readable result: {exc}"
+            ) from exc
+    return parse_isabelle_oracles(extracted, theorem_names)
+
+
 def _check_isabelle(session_dir: Path) -> tuple[bool, str]:
     tool = shutil.which("isabelle")
     if tool is None:
@@ -311,6 +447,7 @@ def _evidence(
     source: Path,
     detail: str,
     axioms: dict[str, list[str]] | None = None,
+    toolchain: str | None = None,
 ) -> dict[str, Any]:
     """Provenance from a kernel run that actually happened. NOT an attestation entry.
 
@@ -322,14 +459,13 @@ def _evidence(
     statement = _resolve(record, "statements", system)
     return {
         "not_an_attestation_entry": [
-            "Provenance captured from a kernel run that really happened, for a system still "
-            "listed under pending_systems. It is NOT an attestation and must not be pasted "
-            "into attestations.entries as-is.",
+            "Provenance captured from a kernel run that really happened. It is NOT an "
+            "attestation and must not be pasted into attestations.entries as-is.",
             *evidence_gaps(axioms),
         ],
         "record": record_path.name,
         "system": system,
-        "toolchain": _toolchain_version(system),
+        "toolchain": toolchain if toolchain is not None else _toolchain_version(system),
         "kernel_result": detail,
         "declaration_axioms": axioms,
         "source_path": str(source.relative_to(REPO_ROOT).as_posix()),
@@ -400,9 +536,9 @@ def check_record(
     `require_available` names systems whose toolchain MUST be present; an absent one
     becomes an error rather than a skip.
 
-    `evidence_dir`, when given, receives one JSON file per pending system whose kernel actually
-    ran and passed. Nothing is written for a system that was skipped or failed -- an evidence
-    file exists only where a kernel really ran.
+    `evidence_dir`, when given, receives one JSON file per supported system whose kernel and
+    assumption/oracle audit actually ran and passed. Nothing is written for a skipped or failed
+    system. Evidence is provenance only and never promotes an attestation entry.
     """
     errors: list[str] = []
     try:
@@ -413,8 +549,12 @@ def check_record(
     entries = record.get("attestations", {}).get("entries", [])
     if not isinstance(entries, list):
         return [f"{path}: attestations.entries must be a list"]
+    pending = record.get("pending_systems", {})
+    if not isinstance(pending, dict):
+        return [f"{path}: pending_systems must be an object"]
 
     attested_systems: set[str] = set()
+    entries_by_system: dict[str, dict[str, Any]] = {}
     for entry in entries:
         if not isinstance(entry, dict):
             errors.append(f"{path}: attestation entry is not an object")
@@ -423,6 +563,10 @@ def check_record(
         if not isinstance(system, str):
             errors.append(f"{path}: attestation entry has no string 'system'")
             continue
+        if system in entries_by_system:
+            errors.append(f"{path}: duplicate attestation entry for system {system!r}")
+            continue
+        entries_by_system[system] = entry
 
         if entry.get("kernel_accepted") is not True:
             errors.append(f"{path}: entry for {system!r} does not claim kernel_accepted=true")
@@ -439,23 +583,42 @@ def check_record(
             "(kernel_accepted=true, artifact and statement digests match)"
         )
 
-    for system, info in record.get("pending_systems", {}).items():
+    overlap = sorted(set(entries_by_system) & set(pending))
+    for system in overlap:
+        errors.append(
+            f"{path}: system {system!r} is both attested and pending; promotion must be an "
+            "unambiguous reviewed edit"
+        )
+
+    supported = {"rocq", "isabelle"}
+    required = set(require_available)
+    unsupported_required = sorted(required - supported)
+    for system in unsupported_required:
+        errors.append(
+            f"{path}: {system!r} was REQUIRED, but this script has no kernel re-run adapter for it"
+        )
+
+    audit_systems = sorted((set(entries_by_system) | set(pending) | required) & supported)
+    for system in audit_systems:
+        info = pending.get(system, {})
+        if not isinstance(info, dict):
+            errors.append(f"{path}: pending_systems[{system!r}] must be an object")
+            info = {}
         source = _resolve(record, "sources", system)
         if source is None or not source.is_file():
-            errors.append(f"{path}: pending system {system!r} names a missing source {source}")
+            errors.append(f"{path}: system {system!r} names a missing source {source}")
+            attested_systems.discard(system)
             continue
 
-        if system == "rocq" and _rocq_command() is not None:
-            ok, detail = _check_rocq(source)
-        elif system == "isabelle" and _tool_available("isabelle"):
-            ok, detail = _check_isabelle(source.parent.parent)
-        else:
-            reason = info.get("reason", "no reason recorded")
-            if system in require_available:
+        available = _rocq_command() is not None if system == "rocq" else _tool_available("isabelle")
+        if not available:
+            reason = info.get("reason", "toolchain unavailable on this machine")
+            if system in required:
                 errors.append(
                     f"{path}: {system!r} was REQUIRED to be available here but its toolchain "
                     "is not on PATH. Refusing to report success for a kernel that never ran."
                 )
+                attested_systems.discard(system)
             else:
                 print(
                     f"check_attestations: {path.name}: {system!r} UNAVAILABLE on this machine "
@@ -463,55 +626,104 @@ def check_record(
                 )
             continue
 
-        if ok:
-            # Axiom dependencies are a SOUNDNESS check, not an evidence-formatting concern, so
-            # this runs whenever the toolchain is present -- with or without --emit-evidence. A
-            # Rocq lemma that started depending on an axiom outside the policy's allow-list must
-            # fail the job that noticed, not wait for someone to read an artifact.
-            axioms: dict[str, list[str]] | None = None
-            if system == "rocq":
-                statement = _resolve(record, "statements", system)
-                if statement is None or not statement.is_file():
-                    errors.append(
-                        f"{path}: {system!r} compiled but names no readable statement file, so "
-                        "the set of declarations to audit cannot be determined"
-                    )
-                    continue
-                try:
-                    axioms = rocq_axioms(source, statement.read_text(encoding="utf-8"))
-                except AxiomExtractionError as exc:
-                    errors.append(f"{path}: {system!r} axiom extraction failed: {exc}")
-                    continue
-                allowed = PLANAR2R_ATTESTATION_POLICY.allowed_axioms.get(system, frozenset())
-                unexpected = sorted({name for names in axioms.values() for name in names} - allowed)
-                if unexpected:
-                    errors.append(
-                        f"{path}: {system!r} declarations depend on axiom(s) outside the "
-                        f"policy allow-list: {unexpected}. Extracted: {axioms}"
-                    )
-                    continue
-                print(
-                    f"check_attestations: {path.name}: {system!r} axiom audit clean for "
-                    f"{len(axioms)} declaration(s) (positive control passed)"
-                )
+        if system == "rocq":
+            ok, detail = _check_rocq(source)
+        else:
+            ok, detail = _check_isabelle(source.parent.parent)
+        if not ok:
+            errors.append(f"{path}: system {system!r} is available but failed: {detail}")
+            attested_systems.discard(system)
+            continue
 
+        statement = _resolve(record, "statements", system)
+        if statement is None or not statement.is_file():
+            errors.append(
+                f"{path}: {system!r} compiled but names no readable statement file, so the "
+                "set of declarations to audit cannot be determined"
+            )
+            attested_systems.discard(system)
+            continue
+        try:
+            statement_text = statement.read_text(encoding="utf-8")
+            axioms = (
+                rocq_axioms(source, statement_text)
+                if system == "rocq"
+                else isabelle_oracles(source.parent.parent, statement_text)
+            )
+        except (AxiomExtractionError, OSError) as exc:
+            errors.append(f"{path}: {system!r} axiom/oracle extraction failed: {exc}")
+            attested_systems.discard(system)
+            continue
+
+        observed_axioms = sorted({name for names in axioms.values() for name in names})
+        allowed = PLANAR2R_ATTESTATION_POLICY.allowed_axioms.get(system, frozenset())
+        unexpected = sorted(set(observed_axioms) - allowed)
+        if unexpected:
+            errors.append(
+                f"{path}: {system!r} declarations depend on axiom/oracle(s) outside the "
+                f"policy allow-list: {unexpected}. Extracted: {axioms}"
+            )
+            attested_systems.discard(system)
+            continue
+
+        toolchain = _toolchain_version(system)
+        if toolchain is None:
+            errors.append(
+                f"{path}: {system!r} kernel passed but its exact toolchain version could not "
+                "be captured; refusing to emit or validate evidence"
+            )
+            attested_systems.discard(system)
+            continue
+
+        print(
+            f"check_attestations: {path.name}: {system!r} axiom/oracle audit clean for "
+            f"{len(axioms)} declaration(s) (positive control passed)"
+        )
+
+        entry = entries_by_system.get(system)
+        if entry is not None:
+            mismatch = False
+            if entry.get("toolchain") != toolchain:
+                errors.append(
+                    f"{path}: {system!r} toolchain mismatch on kernel re-run -- committed "
+                    f"{entry.get('toolchain')!r}, observed {toolchain!r}"
+                )
+                mismatch = True
+            recorded_axioms = entry.get("axioms")
+            if not isinstance(recorded_axioms, list) or not all(
+                isinstance(name, str) for name in recorded_axioms
+            ):
+                errors.append(f"{path}: {system!r} committed axioms are not a string array")
+                mismatch = True
+            elif sorted(recorded_axioms) != observed_axioms:
+                errors.append(
+                    f"{path}: {system!r} axiom/oracle mismatch on kernel re-run -- committed "
+                    f"{sorted(recorded_axioms)!r}, observed {observed_axioms!r}"
+                )
+                mismatch = True
+            if mismatch:
+                attested_systems.discard(system)
+                continue
+            print(
+                f"check_attestations: {path.name}: {system!r} promoted attestation was "
+                "revalidated by a fresh kernel run"
+            )
+        else:
             print(
                 f"check_attestations: {path.name}: {system!r} toolchain available and "
-                f"{detail} -- record it with `kernel_accepted: true` and move it out of "
-                "pending_systems"
+                f"{detail} -- reviewed transcription may now move it out of pending_systems"
             )
-            if evidence_dir is not None:
-                evidence = _evidence(record, path, system, source, detail, axioms)
-                evidence_dir.mkdir(parents=True, exist_ok=True)
-                target = evidence_dir / f"{path.stem}.{system}.json"
-                target.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
-                print(
-                    f"check_attestations: {path.name}: wrote run evidence for {system!r} to "
-                    f"{target} (toolchain {evidence['toolchain']!r}). Still NOT sufficient for "
-                    "an entry -- see 'not_an_attestation_entry' in the file."
-                )
-        else:
-            errors.append(f"{path}: pending system {system!r} is available but failed: {detail}")
+
+        if evidence_dir is not None:
+            evidence = _evidence(record, path, system, source, detail, axioms, toolchain=toolchain)
+            evidence_dir.mkdir(parents=True, exist_ok=True)
+            target = evidence_dir / f"{path.stem}.{system}.json"
+            target.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+            print(
+                f"check_attestations: {path.name}: wrote run evidence for {system!r} to "
+                f"{target} (toolchain {toolchain!r}). Provenance only -- see "
+                "'not_an_attestation_entry' in the file."
+            )
 
     missing = set(PLANAR2R_ATTESTATION_POLICY.required_systems) - attested_systems
     if missing:
@@ -543,10 +755,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--emit-evidence",
         metavar="DIR",
         help=(
-            "Write run provenance here for every pending system whose kernel actually ran and "
-            "passed: the toolchain version, which is not reconstructable afterwards, plus the "
-            "digests and the certificate binding, plus Rocq axiom dependencies where the extractor "
-            "ran. Provenance only -- each file lists what it still does not establish."
+            "Write run provenance here for every supported system whose kernel and "
+            "assumption/oracle audit passed: toolchain, digests, certificate binding, and "
+            "per-declaration dependencies. Provenance only; this never promotes an entry."
         ),
     )
     args = parser.parse_args(argv)

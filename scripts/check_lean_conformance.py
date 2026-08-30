@@ -29,14 +29,16 @@ on the vectors -- not the Lean predicate evaluated on the Lean terms.
 **A disagreement is a finding, not a bug to paper over.** `formal/AGENTS.md`, "When a model and
 the implementation disagree", forbids conforming the model to Python. Report it.
 
-`--require-lean` makes an absent toolchain a hard failure, and CI must pass it. Without it this
-script reports "skipped" and exits 0 when `lake` is missing, which is exactly the false green
-the `rocq` job shipped on its first run -- a passing job that means nothing.
+`--require-lean` makes an absent or unrunnable pinned toolchain a hard failure, and CI must pass
+it. Availability means that `lake env lean --version` succeeds, not merely that a possibly
+broken elan shim named `lake` exists on PATH. `--lake PATH` overrides `ROBOCERT_LAKE`, which
+overrides PATH; none of these paths performs an automatic download.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -356,7 +358,9 @@ def _scalar_claim(
     )
 
 
-def _identity_predicate(predicate_id: str, variable_id: str, bound: Rational, relation: Relation):
+def _identity_predicate(
+    predicate_id: str, variable_id: str, bound: Rational, relation: Relation
+) -> Predicate:
     """`variable <relation> bound`, as a Predicate."""
     return Predicate(
         predicate_id=predicate_id,
@@ -604,13 +608,117 @@ def emit_lean_source(vectors: list[Vector]) -> tuple[str, dict[int, str]]:
 _LEAN_DIAGNOSTIC = re.compile(r"^.*?:(\d+):\d+: (error|warning): ", re.MULTILINE)
 
 
-def run_lean(source: str, guard_lines: dict[int, str]) -> list[str]:
+@dataclass(frozen=True, slots=True)
+class LeanToolchainProbe:
+    """Result of testing the exact command that will elaborate the conformance file."""
+
+    lake: str | None
+    version: str | None
+    diagnostic: str
+
+    @property
+    def available(self) -> bool:
+        return self.lake is not None and self.version is not None
+
+
+def _lake_candidate(explicit: str | None = None) -> str | None:
+    """Resolve CLI override, then environment override, then PATH -- in that order."""
+    requested = explicit if explicit is not None else os.environ.get("ROBOCERT_LAKE")
+    if requested:
+        found = shutil.which(requested)
+        return found if found is not None else requested
+    return shutil.which("lake")
+
+
+def _elan_proxy(lake: str) -> Path | None:
+    """Return the adjacent elan manager when `lake` is an elan proxy."""
+    parent = Path(lake).resolve().parent
+    for name in ("elan.exe", "elan"):
+        candidate = parent / name
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def probe_lean_toolchain(explicit: str | None = None) -> LeanToolchainProbe:
+    """Require the pinned environment to execute Lean; PATH presence alone is insufficient."""
+    lake = _lake_candidate(explicit)
+    if lake is None:
+        return LeanToolchainProbe(None, None, "no lake command was found")
+
+    environment = os.environ.copy()
+    elan = _elan_proxy(lake)
+    if elan is not None:
+        # An elan proxy automatically downloads a missing toolchain. Refuse before invoking the
+        # proxy unless elan itself reports the repository's pin as installed. `toolchain list`
+        # is read-only and does not carry elan-run's `--install` flag.
+        pinned = (FORMAL_DIR / "lean-toolchain").read_text(encoding="utf-8").strip()
+        try:
+            listed = subprocess.run(
+                [str(elan), "toolchain", "list"],
+                cwd=FORMAL_DIR,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+                timeout=30,
+                env=environment,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return LeanToolchainProbe(lake, None, f"elan inventory probe could not run: {exc}")
+        inventory = (listed.stdout + listed.stderr).strip()
+        installed = {
+            line.split()[0]
+            for line in inventory.splitlines()
+            if line and not line.startswith("no ")
+        }
+        if listed.returncode != 0 or pinned not in installed:
+            detail = inventory or "elan reported no installed toolchains"
+            return LeanToolchainProbe(
+                lake,
+                None,
+                f"pinned toolchain {pinned!r} is not installed according to elan: {detail}",
+            )
+
+    try:
+        completed = subprocess.run(
+            [lake, "env", "lean", "--version"],
+            cwd=FORMAL_DIR,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=30,
+            env=environment,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return LeanToolchainProbe(lake, None, f"probe could not run: {exc}")
+
+    output = (completed.stdout + completed.stderr).strip()
+    if completed.returncode != 0:
+        detail = output or f"exit code {completed.returncode} with no output"
+        return LeanToolchainProbe(lake, None, f"`lake env lean --version` failed: {detail}")
+    lines = output.splitlines()
+    if not lines:
+        return LeanToolchainProbe(lake, None, "version probe succeeded but produced no output")
+    return LeanToolchainProbe(lake, lines[0].strip(), "toolchain probe succeeded")
+
+
+def run_lean(source: str, guard_lines: dict[int, str], lake: str | None = None) -> list[str]:
     """Elaborate the generated file; return one diagnostic per disagreeing vector."""
+    if lake is None:
+        probe = probe_lean_toolchain()
+        if not probe.available:
+            return [f"Lean toolchain unavailable during elaboration: {probe.diagnostic}"]
+        lake = probe.lake
+    assert lake is not None
     with tempfile.TemporaryDirectory(prefix="robocert-conformance-") as directory:
         path = Path(directory) / "Conformance.lean"
         path.write_text(source, encoding="utf-8")
         completed = subprocess.run(
-            ["lake", "env", "lean", str(path)],
+            [lake, "env", "lean", str(path)],
             cwd=FORMAL_DIR,
             capture_output=True,
             text=True,
@@ -654,6 +762,14 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--lake",
+        metavar="PATH",
+        help=(
+            "Lake command to probe and run. Precedence: --lake, ROBOCERT_LAKE, then PATH. "
+            "No toolchain is downloaded automatically."
+        ),
+    )
+    parser.add_argument(
         "--emit-only",
         metavar="PATH",
         help="Write the generated Lean source here and exit, without running it.",
@@ -673,21 +789,24 @@ def main(argv: list[str] | None = None) -> int:
         print(f"check_lean_conformance: wrote {args.emit_only}")
         return 0
 
-    if shutil.which("lake") is None:
+    probe = probe_lean_toolchain(args.lake)
+    if not probe.available:
         if args.require_lean:
             print(
-                "check_lean_conformance: `lake` was REQUIRED here but is not on PATH. Refusing "
-                "to report conformance for a model that was never elaborated.",
+                "check_lean_conformance: a runnable pinned Lean toolchain was REQUIRED here "
+                f"but is unavailable ({probe.diagnostic}). Refusing to report conformance for "
+                "a model that was never elaborated.",
                 file=sys.stderr,
             )
             return 1
         print(
-            "check_lean_conformance: `lake` UNAVAILABLE on this machine -- reported, not "
-            "treated as a pass. Install the pinned toolchain with elan; see formal/README.md."
+            "check_lean_conformance: Lean toolchain UNAVAILABLE on this machine -- reported, "
+            f"not treated as a pass ({probe.diagnostic}). Install the pinned toolchain with "
+            "elan or set ROBOCERT_LAKE; see formal/README.md."
         )
         return 0
 
-    failures = run_lean(source, guard_lines)
+    failures = run_lean(source, guard_lines, probe.lake)
     if failures:
         for failure in failures:
             print(f"check_lean_conformance: {failure}", file=sys.stderr)
