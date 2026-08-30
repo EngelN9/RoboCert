@@ -84,20 +84,40 @@ discarded it. The `rocq` and `isabelle` jobs now write that evidence and upload 
 artifact. It is gitignored, never committed — a checked-in copy would be a stale claim about a
 run that is over.
 
-That closes the recoverable half. **One gap remains, and it is what still blocks promotion:**
-neither kernel is interrogated for its axiom dependencies. Lean's entry carries a real `axioms`
-list because `scripts/check_lean_axioms.py` reads `#print axioms` output; there is no
-equivalent for the other two. Rocq would need `Print Assumptions` per lemma and Isabelle an
-equivalent, and until one exists the `axioms` field of an entry cannot be filled from a real
-run. Writing one anyway — including writing `[]` for Isabelle because the policy's allow-list
-happens to be empty — is exactly the fabrication rule 7 forbids. The evidence file states this
-in its own `not_an_attestation_entry` field, so the omission travels with the artifact rather
-than living only here.
+That closes the recoverable half. The other half is axiom dependencies, and the two systems are
+now in different places.
 
-The axiom extraction is deliberately not written blind. Both prover CI jobs were authored on a
-machine with neither toolchain installed and needed three rounds of fixes before they ran; a
-fourth blind guess at `Print Assumptions` invocation and output parsing would repeat that,
-and unlike a build failure a mis-parsed axiom list could fail *open*.
+**Rocq: extracted and checked.** `check_attestations.py` runs `Print Assumptions` for every
+`Lemma` named in `formal/attestations/statements/rocq.txt` — deriving the audited set from that
+file rather than a constant, so narrowing it invalidates the `statement_digest` the record pins
+— and cross-checks the result against `PLANAR2R_ATTESTATION_POLICY.allowed_axioms["rocq"]`. This
+runs whenever the toolchain is present, with or without `--emit-evidence`: an axiom escaping the
+allow-list must fail the job that noticed it, not wait for a human to read an artifact.
+
+The parser refuses to guess. `[]` means the kernel said *Closed under the global context*, never
+"the output was not understood"; every unrecognised shape raises. That distinction is the whole
+design, because unlike a build failure a silently empty axiom list fails **open** — it would
+write an attestation asserting a proof depends on nothing.
+
+What makes that safe to write on a machine with no Rocq is the **positive control**: before
+auditing the real lemmas, the extractor compiles a throwaway proof built on a planted axiom and
+must report it. A parser that cannot see a deliberately axiom-dependent proof has not earned the
+right to report `[]` for a real one. It runs on the same binary, in the same job, immediately
+before the real declarations.
+
+**Isabelle: probed, not guessed.** There is no extractor yet, and its allow-list is empty — so an
+entry would have to assert `axioms: []`, which is exactly the assertion that must come from a run
+rather than from what the policy expects. Writing it because the policy happens to expect it is
+the fabrication rule 7 names. The `isabelle` CI job now carries a diagnostic-only step that
+prints what that Isabelle's introspection actually emits for a clean lemma and a deliberately
+`sorry`-ed one side by side; the extractor gets written against the answer. This is the same move
+as `438367f` ("Probe the Rocq 9 entry point"), which is what ended three rounds of blind guessing
+at these jobs.
+
+So Isabelle's evidence file still carries the axiom gap and Rocq's no longer does — the
+disclosure shrinks exactly as far as the evidence improves. Both still carry the transcription
+gap: an entry is written by hand from an evidence file, so moving a system out of
+`pending_systems` stays a reviewed edit rather than a scripted one.
 
 ## A layout asymmetry, recorded rather than hidden
 

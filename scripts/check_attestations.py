@@ -37,9 +37,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -102,6 +104,145 @@ def _check_rocq(source: Path) -> tuple[bool, str]:
     return True, "compiled cleanly"
 
 
+class AxiomExtractionError(RuntimeError):
+    """The axiom extractor could not establish an answer, so it refuses to give one.
+
+    Every path that cannot produce a positively-recognised result raises this. There is no
+    branch returning an empty list as a fallback: `[]` means "the kernel said Closed under the
+    global context", never "the parser did not understand the output". That distinction is the
+    whole point -- a build failure is loud, but a silently empty axiom list would fail OPEN,
+    writing an attestation asserting a proof depends on nothing.
+    """
+
+
+#: `Print Assumptions` reports assumptions under these headings. Anything else is unrecognised
+#: output, which raises rather than being skipped.
+_ASSUMPTION_SECTIONS = frozenset({"Axioms:", "Parameters:", "Variables:"})
+_CLOSED = "Closed under the global context"
+_LEMMA_RE = re.compile(r"^Lemma\s+(\w+)", re.MULTILINE)
+
+
+def rocq_lemma_names(statement_text: str) -> list[str]:
+    """The declarations to audit, taken from the committed statement file.
+
+    Deriving them from the statement text rather than a constant here means the audited set is
+    bound by `statement_digest`: narrowing it requires editing a file whose digest the
+    attestation record pins, which invalidates the attestation. `check_lean_axioms.py` gets the
+    same property from a hardcoded `REQUIRED_DECLARATIONS` list; this route is stronger.
+    """
+    names = _LEMMA_RE.findall(statement_text)
+    if not names:
+        raise AxiomExtractionError(
+            "no `Lemma <name>` declarations found in the Rocq statement file. An empty audit "
+            "set is never the answer -- the file is unreadable, malformed, or has changed shape."
+        )
+    return names
+
+
+def parse_print_assumptions(output: str) -> list[str]:
+    """Parse ONE `Print Assumptions` result. Raises unless the output is positively recognised.
+
+    Two shapes are accepted and nothing else: the closed form, and one or more assumption
+    sections whose entries are `name` or `name : type`, with wrapped types indented onto
+    following lines.
+    """
+    lines = [line.rstrip() for line in output.splitlines() if line.strip()]
+    if not lines:
+        raise AxiomExtractionError("`Print Assumptions` produced no output at all")
+    if len(lines) == 1 and lines[0].strip() == _CLOSED:
+        return []
+
+    names: list[str] = []
+    section_seen = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped == _CLOSED:
+            raise AxiomExtractionError(
+                f"output mixes the closed form with other content:\n{output}"
+            )
+        if not line[:1].isspace():
+            if stripped.endswith(":") and " " not in stripped:
+                if stripped not in _ASSUMPTION_SECTIONS:
+                    raise AxiomExtractionError(
+                        f"unrecognised `Print Assumptions` section {stripped!r}. Refusing to "
+                        f"guess whether it carries assumptions:\n{output}"
+                    )
+                section_seen = True
+                continue
+            if not section_seen:
+                raise AxiomExtractionError(
+                    f"`Print Assumptions` output does not start with a known section:\n{output}"
+                )
+            names.append(stripped.split(":")[0].split()[0])
+        # An indented line continues the previous entry's type. Nothing to collect.
+    if not section_seen or not names:
+        raise AxiomExtractionError(f"could not recognise `Print Assumptions` output:\n{output}")
+    return names
+
+
+def _rocq_print_assumptions(source: Path, declaration: str, preamble: str = "") -> list[str]:
+    """Run `Print Assumptions <declaration>` and parse exactly that one result.
+
+    One invocation per declaration, deliberately. `Print Assumptions` does not echo the name it
+    was asked about, so a single batched file would yield unlabelled blocks that could only be
+    matched back by position -- an alignment assumption that fails silently the moment the
+    toolchain emits anything extra. Five fast invocations have no such assumption.
+    """
+    command = _rocq_command()
+    if command is None:
+        raise AxiomExtractionError("no rocq/rocqc/coqc on PATH")
+    body = f"{preamble}Print Assumptions {declaration}.\n"
+    with tempfile.TemporaryDirectory(prefix="robocert-assumptions-") as directory:
+        probe = Path(directory) / "Assumptions.v"
+        probe.write_text(
+            f"Require Import RoboCert.{source.stem}.\n{body}", encoding="utf-8", newline="\n"
+        )
+        argv = [*command, "-Q", str(source.parent), "RoboCert", str(probe)]
+        code, output = _run(argv, cwd=FORMAL_DIR)
+    if code != 0:
+        raise AxiomExtractionError(f"`Print Assumptions {declaration}` failed:\n{output}")
+    return parse_print_assumptions(output)
+
+
+#: Declared and consumed by the positive control below. The name is distinctive so that seeing
+#: it anywhere near a real attestation is unmistakable.
+PLANTED_AXIOM = "robocert_planted_axiom"
+
+
+def _rocq_extractor_self_check(source: Path) -> None:
+    """Prove the extractor can see an axiom before trusting it to report none.
+
+    A parser that cannot detect a DELIBERATELY axiom-dependent proof has not earned the right to
+    report `[]` for a real one. This runs on the same binary, in the same job, immediately
+    before the real declarations -- so a parser wrong about this toolchain's output format fails
+    loudly here instead of quietly certifying five lemmas as assumption-free.
+    """
+    preamble = (
+        f"Axiom {PLANTED_AXIOM} : False.\n"
+        "Lemma planted_control : False.\n"
+        f"Proof. exact {PLANTED_AXIOM}. Qed.\n"
+    )
+    found = _rocq_print_assumptions(source, "planted_control", preamble=preamble)
+    if PLANTED_AXIOM not in found:
+        raise AxiomExtractionError(
+            f"positive control FAILED: a proof built on `{PLANTED_AXIOM}` was reported as "
+            f"depending on {found}. The parser does not understand this toolchain's "
+            "`Print Assumptions` output, so its verdict on the real declarations means nothing."
+        )
+
+
+def rocq_axioms(source: Path, statement_text: str) -> dict[str, list[str]]:
+    """Axiom dependencies of every declaration the statement file names.
+
+    Raises `AxiomExtractionError` unless the positive control passes AND every declaration
+    yields a positively-recognised result.
+    """
+    _rocq_extractor_self_check(source)
+    return {
+        name: _rocq_print_assumptions(source, name) for name in rocq_lemma_names(statement_text)
+    }
+
+
 def _check_isabelle(session_dir: Path) -> tuple[bool, str]:
     tool = shutil.which("isabelle")
     if tool is None:
@@ -141,14 +282,26 @@ def _toolchain_version(system: str) -> str | None:
     return first[0].strip() if first else None
 
 
-#: What an attestation entry needs that this evidence file does NOT establish. Kept as data so
-#: the omission travels with the artifact instead of living only in a docstring.
-EVIDENCE_GAPS = (
-    "axioms: neither kernel is interrogated for its axiom dependencies here. Rocq would need "
-    "`Print Assumptions` per lemma and Isabelle an equivalent; until one exists, the `axioms` "
-    "field of an entry cannot be filled from a real run, and writing one anyway is the "
-    "fabrication formal/AGENTS.md rule 7 forbids.",
+#: What an attestation entry needs that an evidence file does NOT establish. Kept as data so the
+#: omission travels with the artifact instead of living only in a docstring, and computed per
+#: file so the disclosure shrinks exactly as far as the evidence improves and no further.
+AXIOM_GAP = (
+    "axioms: this kernel is not interrogated for its axiom dependencies. Until it is, the "
+    "`axioms` field of an entry cannot be filled from a real run, and writing one anyway -- "
+    "including writing [] because the policy's allow-list happens to be empty -- is the "
+    "fabrication formal/AGENTS.md rule 7 forbids."
 )
+TRANSCRIPTION_GAP = (
+    "promotion stays a human step: an entry is written by hand from this file, so moving a "
+    "system out of pending_systems is a reviewed edit rather than a scripted one."
+)
+
+
+def evidence_gaps(axioms: dict[str, list[str]] | None) -> list[str]:
+    """What this particular evidence file still does not establish."""
+    if axioms is None:
+        return [AXIOM_GAP, TRANSCRIPTION_GAP]
+    return [TRANSCRIPTION_GAP]
 
 
 def _evidence(
@@ -157,6 +310,7 @@ def _evidence(
     system: str,
     source: Path,
     detail: str,
+    axioms: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
     """Provenance from a kernel run that actually happened. NOT an attestation entry.
 
@@ -171,12 +325,13 @@ def _evidence(
             "Provenance captured from a kernel run that really happened, for a system still "
             "listed under pending_systems. It is NOT an attestation and must not be pasted "
             "into attestations.entries as-is.",
-            *EVIDENCE_GAPS,
+            *evidence_gaps(axioms),
         ],
         "record": record_path.name,
         "system": system,
         "toolchain": _toolchain_version(system),
         "kernel_result": detail,
+        "declaration_axioms": axioms,
         "source_path": str(source.relative_to(REPO_ROOT).as_posix()),
         "artifact_digest": _sha256_file(source),
         "statement_path": (
@@ -309,13 +464,44 @@ def check_record(
             continue
 
         if ok:
+            # Axiom dependencies are a SOUNDNESS check, not an evidence-formatting concern, so
+            # this runs whenever the toolchain is present -- with or without --emit-evidence. A
+            # Rocq lemma that started depending on an axiom outside the policy's allow-list must
+            # fail the job that noticed, not wait for someone to read an artifact.
+            axioms: dict[str, list[str]] | None = None
+            if system == "rocq":
+                statement = _resolve(record, "statements", system)
+                if statement is None or not statement.is_file():
+                    errors.append(
+                        f"{path}: {system!r} compiled but names no readable statement file, so "
+                        "the set of declarations to audit cannot be determined"
+                    )
+                    continue
+                try:
+                    axioms = rocq_axioms(source, statement.read_text(encoding="utf-8"))
+                except AxiomExtractionError as exc:
+                    errors.append(f"{path}: {system!r} axiom extraction failed: {exc}")
+                    continue
+                allowed = PLANAR2R_ATTESTATION_POLICY.allowed_axioms.get(system, frozenset())
+                unexpected = sorted({name for names in axioms.values() for name in names} - allowed)
+                if unexpected:
+                    errors.append(
+                        f"{path}: {system!r} declarations depend on axiom(s) outside the "
+                        f"policy allow-list: {unexpected}. Extracted: {axioms}"
+                    )
+                    continue
+                print(
+                    f"check_attestations: {path.name}: {system!r} axiom audit clean for "
+                    f"{len(axioms)} declaration(s) (positive control passed)"
+                )
+
             print(
                 f"check_attestations: {path.name}: {system!r} toolchain available and "
                 f"{detail} -- record it with `kernel_accepted: true` and move it out of "
                 "pending_systems"
             )
             if evidence_dir is not None:
-                evidence = _evidence(record, path, system, source, detail)
+                evidence = _evidence(record, path, system, source, detail, axioms)
                 evidence_dir.mkdir(parents=True, exist_ok=True)
                 target = evidence_dir / f"{path.stem}.{system}.json"
                 target.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
@@ -359,7 +545,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         help=(
             "Write run provenance here for every pending system whose kernel actually ran and "
             "passed: the toolchain version, which is not reconstructable afterwards, plus the "
-            "digests and the certificate binding. Provenance only -- see EVIDENCE_GAPS."
+            "digests and the certificate binding, plus Rocq axiom dependencies where the extractor "
+            "ran. Provenance only -- each file lists what it still does not establish."
         ),
     )
     args = parser.parse_args(argv)

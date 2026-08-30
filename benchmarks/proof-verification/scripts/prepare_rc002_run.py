@@ -3,6 +3,23 @@
 The source-to-blind-label map is intentionally written outside the repository.
 This script never edits either source proof and refuses to overwrite a differing
 run artifact.
+
+LIMITATION -- this prepares a TWO-source run only, and a repaired RUN002 needs more.
+`source_specs` in `prepare()` names exactly two proofs, `_load_or_create_private_map`
+requires the blind-label set to be exactly {"P1", "P2"}, and the label assignment is a
+two-way coin flip (`secrets.randbelow(2)`). RC-002's repaired package additionally carries
+`research/proofs/rc002-frozen-task-corrigendum-2026-08-24.md`, so it cannot be frozen here
+as things stand.
+
+The fix is deliberately NOT written yet, because the blocking question is not mechanical:
+does the corrigendum merge into the P1/P2 packets, or take a third blind label? That choice
+affects audit validity, and it needs the project owner's read of the corrigendum first --
+which per research/CLAIMS.md RC-002 has not happened. Generalizing beforehand would be
+scaffolding for a run whose shape is not settled.
+
+Whichever way it goes, note that this tool is frozen on BENCHMARK.md §24 terms: it pins
+BENCHMARK_VERSION and RUN001 was prepared at 0.2.0, so changing preparation semantics needs
+a version bump and a comparability note, not just an edit.
 """
 
 from __future__ import annotations
