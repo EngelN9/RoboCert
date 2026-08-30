@@ -107,6 +107,12 @@ jobs:
       # rejects an unproved theorem. See scripts/check_lean_axioms.py.
       - name: Axiom audit
         run: python scripts/check_lean_axioms.py
+      # The axiom audit says the Lean theorem is proved. It says nothing about whether the
+      # theorem is about the shipped code. This step is that bridge, and --require-lean is
+      # what stops it passing green on a machine with no toolchain. `robocert` needs no
+      # install here: it has no dependencies and the script puts `src/` on sys.path.
+      - name: Lean/Python differential conformance
+        run: python scripts/check_lean_conformance.py --require-lean
 
   rocq:
     name: Rocq exact polynomial identities

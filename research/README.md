@@ -43,9 +43,10 @@ or by being confirmed by more than one kernel. Concretely, a proof from any of t
 - does **not** authorize registering a production checker;
 - does **not** discharge the "Future certificate-family obligation" in
   `docs/architecture/trusted-computing-base.md`;
-- proves things about a `formal/` model, **not** about `src/robocert/`. That correspondence
-  is established by differential testing (Lean) or has not yet been attempted (Rocq,
-  Isabelle), and is not proved by any of them.
+- proves things about a `formal/` model, **not** about `src/robocert/`. For Lean that
+  correspondence is differentially tested — `scripts/check_lean_conformance.py`, run in CI —
+  which is evidence on a finite vector set, not a proof of equivalence. For Rocq and Isabelle
+  it has not been attempted. It is proved by none of them.
 
 One channel is a narrow, deliberate exception: `src/robocert/attestation.py` lets a
 registered checker *require* attestations from proof-assistant kernels, but only as a veto —

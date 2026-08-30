@@ -59,7 +59,7 @@ Absent that re-run, an attestation is **provenance, not proof**.
 | | Status |
 |---|---|
 | Lean: `check c cert = true → c.Semantics` | **PROVED**, kernel-checked, no `sorryAx` — confirmed locally via `lake build` + `scripts/check_lean_axioms.py` |
-| Lean model ≡ Python implementation | **NOT PROVED.** Differential conformance testing against shared vectors is planned, not yet built |
+| Lean model ≡ Python implementation | **NOT PROVED; differentially TESTED.** `scripts/check_lean_conformance.py` runs 18 shared claim/certificate vectors through the Lean model and the shipped Python checker and requires identical verdicts (8 accepted, 10 rejected). The `formal` CI job runs it under `--require-lean`. Agreement on a finite vector set is evidence, not equivalence — see "Differential conformance" below for what it does and does not cover |
 | ℚ semantics → ℝ semantics | **NOT PROVED.** Needs mathlib, deliberately not pinned yet |
 | Certificate payload parsing / hash binding | **NOT MODELLED** by Lean. `verify_certificate`'s metadata cross-checks are a separate concern |
 | Rocq: `formal/rocq/RoboCert/Planar2R.v` compiles with no `admit` | **CONFIRMED** — the `rocq` CI job reports "toolchain available and compiled cleanly" under `--require rocq` on Rocq 9.2. Getting there took three fixes: a false green (job passed with no Rocq on PATH), the Rocq 9 rename of `coqc` to `rocq compile`, and one genuinely FALSE lemma the kernel caught (divergence 5 below) |
@@ -113,6 +113,66 @@ Recorded so that a correspondence review has a checklist rather than a diff.
 6. The upstream methodology manual uses a `lean/` directory
    (`docs/methodology/anthropic-research-methodology-source.md:80`); this project uses
    `formal/`.
+7. **A missing domain fails closed in Lean; in Python it would raise.** `blockWitnessOk`
+   (`Checker.lean:69`) returns `false` when `Claim.findDomain` misses. `checkers.py:127` does a
+   bare `domains_by_id[block.domain_id]` lookup, which would raise an uncaught `KeyError`.
+   Unreachable from a valid `Claim` — `specification.py:737` rejects a quantifier naming an
+   unknown domain at construction — so this is the same shape as divergence 2: the Lean syntax
+   type can represent a state the runtime refuses to build. Found while writing the conformance
+   harness, which is what it is for. Neither side changed.
+8. **Empty `and`/`or` are reachable in Lean, unconstructible in Python.** `Formula.HoldsAll [] =
+   True` and `Formula.HoldsAny [] = False` mirror Python's `all()`/`any()`, but
+   `specification.py:497` rejects an `and`/`or` formula with no operands, so no vector can
+   exercise them. Recorded rather than tested.
+9. **The unbound-variable path is unreachable from a valid `Claim`.** `evalPowers` returns
+   `none` for a variable the environment does not bind, modelling the `KeyError` that
+   `checkers.py:146` catches. In practice every predicate variable must be declared
+   (`specification.py:751`) and every declared variable quantified exactly once
+   (`specification.py:746`), so the domain-membership check rejects a missing binding before
+   the formula is ever evaluated. Both sides still reject; they reject for different reasons.
+
+## Differential conformance
+
+`RoboCert.exactWitness_sound` is a theorem about `Checker.lean`. Whether that model describes
+`src/robocert/checkers.py` is a separate question, and it is not proved anywhere. Without an
+answer the Lean development is unfalsifiable in the wrong direction: the model could drift
+arbitrarily from the runtime and every gate in the repository would stay green.
+
+`scripts/check_lean_conformance.py` is the bridge. It builds claim/certificate vectors, runs
+each through the real shipped `planar2r_exact_witness_checker` object, emits a Lean file with
+one `#guard` per vector asserting the model returns the same `Bool`, and elaborates it with
+`lake env lean`. Nothing is committed: the vectors' Python definitions are the reviewable
+source, so there is no generated artifact to go stale.
+
+**Covered.** The worked instance (`L1 = L2 = 5`, `t1 = 1/2`, `t2 = -1/3`) that
+`formal/attestations/planar2r-exact-witness.json` also names; a witness outside its box; a
+witness inside the box that falsifies the formula; a missing binding; an extra binding; an
+`infeasible` conclusion; a `forall` block (the RC-002 guard); all four open/closed interval
+boundary flags with the witness exactly on the endpoint; two existential blocks; nested `not`,
+a disjunction whose first operand is false, a failing conjunction; and exponent/coefficient
+arithmetic against Lean's hand-written `ratPow`.
+
+**Not covered, and not claimed.** Agreement on 18 vectors is differential evidence, not a proof
+of equivalence (`AGENTS.md` §66). It says nothing about vectors outside the set. It also says
+nothing about the parts of the Python path the Lean model deliberately omits — payload parsing
+(`checkers.py::_parse_witness`), the metadata and hash cross-checks in
+`checking.py::_run_checker`, and `attestation.py::AttestedChecker` — see divergence 3.
+
+**The harness can fail, and that was measured, not assumed.** `tests/test_lean_conformance.py`
+plants a defect and requires detection: a flipped verdict, and eight per-vector mutations of the
+emitted Lean (connective swap, boundary-flag flip, `exists_`→`forAll`, relation swap, exponent
+change). Each is planted at a site that is load-bearing *for that vector*. Mutations applied to
+the first occurrence anywhere in the file are deliberately **not** used as controls: three of
+them (`Relation.gt`, `lowerClosed`, `Formula.and`) were measured as undetected, in every case
+because at that particular site the change preserves the verdict — `relation` is irrelevant to a
+claim already rejected by the quantifier guard, a boundary flag is irrelevant to an interior
+witness, and `and`→`or` is irrelevant when every conjunct is true. That is a property of where
+the mutation landed, not a hole in the harness, and it is recorded here rather than left for a
+reader to rediscover.
+
+One vector was rewritten because of this measurement: `high_exponent_arithmetic` originally
+carried a slack bound, so flipping its exponent from 3 to 2 changed nothing and the vector did
+not perform the check it was named for. Its bound is now tight between the two.
 
 ## Layout
 
@@ -149,6 +209,9 @@ have no equivalent quarantine yet; both of their files so far are proof-complete
 ```bash
 # Lean
 cd formal && lake build
+
+# Does the proved theorem describe the SHIPPED checker? Differential conformance, fail-closed.
+python scripts/check_lean_conformance.py --require-lean
 
 # Rocq (once installed; see the `rocq` CI job for the current best-effort install method)
 rocq compile -Q formal/rocq/RoboCert RoboCert formal/rocq/RoboCert/Planar2R.v
