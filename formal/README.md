@@ -117,16 +117,32 @@ one side by side; the extractor gets written against the answer. This is the sam
 `438367f` ("Probe the Rocq 9 entry point"), which is what ended three rounds of blind guessing at
 these jobs.
 
-Round one earned its place by refuting the guess it existed to test: **`Thm.peek_status` does not
-exist in Isabelle2025.** Had that been written as an extractor rather than a probe, it would have
-been a broken parser in a soundness gate. It also returned something more useful than the API
-answer it was asked for — **`sorry` is a hard error under `isabelle build`, not a warning**
-("Cheating requires quick_and_dirty mode!"). So `_check_isabelle`'s grep for `sorry` in the build
-output is a second line of defence, not the first: a session containing `sorry` does not build at
-all unless `quick_and_dirty` is set, and the RoboCert session does not set it. Round two drops
-`peek_status`, keeps `Thm_Deps.all_oracles` (which round one never reached), and sets
-`quick_and_dirty` in the *probe* session only, since otherwise a tainted theorem cannot be
-constructed to compare against.
+The probe ran four rounds and is now **removed** — it had an answer, and a permanently
+failing step teaches people to ignore red. What it established, recorded here because a CI log
+expires and this does not:
+
+| Round | Question | Answer |
+|---|---|---|
+| 1 | Does `Thm.peek_status` work? | **No** — "Value or constructor (peek_status) has not been declared in structure Thm" in Isabelle2025. Written as an extractor rather than a probe, that would have been a broken parser inside a soundness gate. |
+| 1 (unasked) | What does `sorry` do under `isabelle build`? | It is a **hard error**, not a warning: "Cheating requires quick_and_dirty mode!" |
+| 2 | Does `Thm_Deps.all_oracles` exist? | **Yes** — the ML block compiled once `peek_status` was dropped. Takes a `thm list`. |
+| 3 | Can its `writeln` output be read? | **No.** Batch-mode messages go to the session database; `isabelle build_log -H Writeln` printed nothing. |
+| 4 | What does it return? | `clean=[]`, `tainted=[(("Pure.skip_proof", {}), NONE)]` — read by raising the value as an ML `error`, the one channel observed to reach stdout. |
+
+Two of those matter beyond the extractor.
+
+**`sorry` cannot get into a built session.** `_check_isabelle`'s grep for `sorry` in the build
+output is therefore a second line of defence, not the first — a session containing one does not
+build at all unless `quick_and_dirty` is set, and `formal/isabelle/ROOT` does not set it.
+
+**The extractor is now writable without guessing.** `Thm_Deps.all_oracles` returns an empty list
+for an oracle-free theorem and `Pure.skip_proof` for a cheated one, so it discriminates exactly
+the case that matters, and `Pure.skip_proof` is the positive control the Rocq extractor gets from
+its planted axiom. What is left is mechanical and unwritten: build a temporary session importing
+`RoboCert.Planar2R`, run `all_oracles` over the three lemmas named in
+`formal/attestations/statements/isabelle.txt`, and parse oracle names out of that tuple shape —
+failing closed on anything unrecognised, exactly as the Rocq parser does. Until that exists,
+Isabelle's evidence keeps the axiom gap and Isabelle stays in `pending_systems`.
 
 So Isabelle's evidence file still carries the axiom gap and Rocq's no longer does — the
 disclosure shrinks exactly as far as the evidence improves. Both still carry the transcription
