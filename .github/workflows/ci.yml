@@ -141,7 +141,13 @@ jobs:
           opam switch create robocert ocaml-base-compiler
           eval "$(opam env --switch=robocert)"
           opam repo add rocq-released https://rocq-prover.org/opam/released
-          opam install -y rocq-prover.9.0.0
+          # rocq-core is the KERNEL and is what must be pinned. The previous pin,
+          # `rocq-prover.9.0.0`, is a meta-package that does not constrain it: the first run
+          # that reported its own toolchain string showed it resolving to rocq-core 9.2.0,
+          # rocq-runtime 9.2.0 and rocq-stdlib 9.2.0 while the workflow claimed 9.0.0. Pinning
+          # 9.2.0 here records what has actually been checking these proofs all along; it does
+          # not change which kernel runs.
+          opam install -y rocq-core.9.2.0 rocq-stdlib.9.2.0
           # `opam env` emits shell statements (`PATH='...'; export PATH;`), NOT the
           # KEY=value lines $GITHUB_ENV expects, so appending it propagates nothing; and
           # `opam var --switch=... bin` came back empty here too. Use the switch's
@@ -215,6 +221,15 @@ jobs:
       # blind guessing at these jobs. A clean lemma and a deliberately `sorry`-ed one are put
       # side by side so the tainted shape is visible next to the untainted one. The extractor
       # gets written against whatever this prints, in a later change.
+      #
+      # Round two. Round one refuted the guess it was there to test: `Thm.peek_status` does not
+      # exist in Isabelle2025 ("Value or constructor (peek_status) has not been declared in
+      # structure Thm"), which took the whole ML block down and left `Thm_Deps.all_oracles`
+      # untested. That call is what remains to be established. Round one also reported something
+      # worth more than the API answer -- `sorry` is a hard ERROR under `isabelle build`
+      # ("Cheating requires quick_and_dirty mode!"), not a warning -- so the probe session, and
+      # only the probe session, sets `quick_and_dirty` in order to construct a tainted theorem
+      # at all. The RoboCert session must never set it.
       - name: Probe Isabelle axiom/oracle introspection (diagnostic only)
         continue-on-error: true
         run: |
@@ -222,7 +237,7 @@ jobs:
           mkdir -p /tmp/isabelle-probe/Probe
           cat > /tmp/isabelle-probe/ROOT <<'ROOT_EOF'
           session Probe = HOL +
-            options [document = false]
+            options [document = false, quick_and_dirty]
             directories
               Probe
             theories
@@ -235,15 +250,6 @@ jobs:
           lemma tainted: "(1::nat) + 1 = 3" sorry
 
           ML \<open>
-            fun probe name thm =
-              let val {oracle, unfinished, failed} = Thm.peek_status thm in
-                writeln ("PROBE peek_status " ^ name ^
-                         " oracle=" ^ Bool.toString oracle ^
-                         " unfinished=" ^ Bool.toString unfinished ^
-                         " failed=" ^ Bool.toString failed)
-              end;
-            probe "clean" @{thm clean};
-            probe "tainted" @{thm tainted};
             writeln ("PROBE all_oracles clean=" ^
                      @{make_string} (Thm_Deps.all_oracles [@{thm clean}]));
             writeln ("PROBE all_oracles tainted=" ^

@@ -87,7 +87,10 @@ run that is over.
 That closes the recoverable half. The other half is axiom dependencies, and the two systems are
 now in different places.
 
-**Rocq: extracted and checked.** `check_attestations.py` runs `Print Assumptions` for every
+**Rocq: extracted and checked**, confirmed on a real kernel — the first CI run reported
+"axiom audit clean for 5 declaration(s) (positive control passed)", so the extractor demonstrably
+saw the planted axiom before reporting the five real lemmas clean.
+`check_attestations.py` runs `Print Assumptions` for every
 `Lemma` named in `formal/attestations/statements/rocq.txt` — deriving the audited set from that
 file rather than a constant, so narrowing it invalidates the `statement_digest` the record pins
 — and cross-checks the result against `PLANAR2R_ATTESTATION_POLICY.allowed_axioms["rocq"]`. This
@@ -108,11 +111,22 @@ before the real declarations.
 **Isabelle: probed, not guessed.** There is no extractor yet, and its allow-list is empty — so an
 entry would have to assert `axioms: []`, which is exactly the assertion that must come from a run
 rather than from what the policy expects. Writing it because the policy happens to expect it is
-the fabrication rule 7 names. The `isabelle` CI job now carries a diagnostic-only step that
-prints what that Isabelle's introspection actually emits for a clean lemma and a deliberately
-`sorry`-ed one side by side; the extractor gets written against the answer. This is the same move
-as `438367f` ("Probe the Rocq 9 entry point"), which is what ended three rounds of blind guessing
-at these jobs.
+the fabrication rule 7 names. The `isabelle` CI job carries a diagnostic-only step that prints
+what that Isabelle's introspection actually emits for a clean lemma and a deliberately `sorry`-ed
+one side by side; the extractor gets written against the answer. This is the same move as
+`438367f` ("Probe the Rocq 9 entry point"), which is what ended three rounds of blind guessing at
+these jobs.
+
+Round one earned its place by refuting the guess it existed to test: **`Thm.peek_status` does not
+exist in Isabelle2025.** Had that been written as an extractor rather than a probe, it would have
+been a broken parser in a soundness gate. It also returned something more useful than the API
+answer it was asked for — **`sorry` is a hard error under `isabelle build`, not a warning**
+("Cheating requires quick_and_dirty mode!"). So `_check_isabelle`'s grep for `sorry` in the build
+output is a second line of defence, not the first: a session containing `sorry` does not build at
+all unless `quick_and_dirty` is set, and the RoboCert session does not set it. Round two drops
+`peek_status`, keeps `Thm_Deps.all_oracles` (which round one never reached), and sets
+`quick_and_dirty` in the *probe* session only, since otherwise a tainted theorem cannot be
+constructed to compare against.
 
 So Isabelle's evidence file still carries the axiom gap and Rocq's no longer does — the
 disclosure shrinks exactly as far as the evidence improves. Both still carry the transcription
@@ -308,9 +322,21 @@ Attestation *toolchain-version* format for reports, per
 
 ```
 lean: leanprover/lean4:v4.33.1 / no dependencies
-rocq: rocq-prover 9.0.0 (pending first successful CI run)
-isabelle: Isabelle2025 (pending first successful CI run)
+rocq: rocq-core 9.2.0 / rocq-stdlib 9.2.0
+isabelle: Isabelle2025
 ```
+
+Both prover lines were "pending first successful CI run" until the runs happened, and the Rocq
+one was **wrong**. The workflow pinned `rocq-prover.9.0.0`; that is a meta-package which does
+not constrain the kernel, and the first run to report its own toolchain string showed it
+resolving to `rocq-core 9.2.0`, `rocq-runtime 9.2.0`, `rocq-stdlib 9.2.0`. The kernel accepting
+these proofs had never been 9.0.0. The workflow now pins `rocq-core` directly, which records
+what has actually been running rather than changing it.
+
+That defect was invisible for as long as the run threw its own identity away, and it is what
+capturing the toolchain string is for. `docs/architecture/trusted-computing-base.md`'s
+obligation to identify trusted libraries *and versions* was being met with a version that was
+not the kernel's.
 
 Do not confuse this reporting convention with an *attestation record*
 (`src/robocert/attestation.py`, `formal/attestations/*.json`) — the former is prose for a
