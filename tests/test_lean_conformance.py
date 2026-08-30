@@ -17,16 +17,20 @@ import importlib.util
 import shutil
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 from robocert.specification import (
+    BoxDomain,
     Formula,
     IntervalDomain,
     MonomialPower,
     Polynomial,
     Predicate,
+    QuantifierBlock,
+    QuantifierKind,
     Rational,
     Relation,
     Term,
@@ -193,6 +197,86 @@ def test_boundary_vectors_split_on_the_closed_flag(by_name: dict[str, Any]) -> N
     assert by_name["boundary_lower_open"].python_accepted is False
     assert by_name["boundary_upper_closed"].python_accepted is True
     assert by_name["boundary_upper_open"].python_accepted is False
+
+
+def test_every_vector_satisfies_the_soundness_theorem_hypothesis(
+    script: Any, vectors: list[Any]
+) -> None:
+    """`exactWitness_sound` assumes `FormulaVarsQuantified`; a vector outside it proves nothing.
+
+    `build_vectors` already refuses to construct such a vector, so this asserts the property the
+    guard is there to keep rather than re-testing the guard.
+    """
+    for vector in vectors:
+        satisfied, unbound = script.formula_vars_quantified(vector.claim)
+        assert satisfied, f"{vector.name}: unbound in the formula: {unbound}"
+
+
+def test_the_wellformedness_check_can_say_no(script: Any) -> None:
+    """Non-vacuity control. Without this, a helper returning True unconditionally would pass
+    every assertion above and the guard in `build_vectors` would be decoration.
+
+    A `Claim` mentioning an unquantified variable cannot be constructed -- `specification.py`
+    rejects it at three separate points -- so the claim-level validation is bypassed with a
+    stand-in carrying the four attributes the helper reads. Every sub-object is a real one; only
+    `Claim.__post_init__` is skipped, and skipping it is the whole point of the control.
+    """
+    predicate = Predicate(
+        predicate_id="mentions_free",
+        left=Polynomial(terms=(Term(Rational(1), powers=(MonomialPower("free", 1),)),)),
+        relation=Relation.GT,
+        right=Polynomial.zero(),
+    )
+    axis = IntervalDomain(domain_id="B.v", variable_id="v", lower=Rational(0), upper=Rational(1))
+    stand_in = SimpleNamespace(
+        predicates=(predicate,),
+        formula=Formula.predicate("mentions_free"),
+        domains=(BoxDomain("B", components=(axis,)),),
+        quantifiers=(QuantifierBlock(QuantifierKind.EXISTS, ("v",), "B"),),
+    )
+
+    satisfied, unbound = script.formula_vars_quantified(stand_in)
+    assert satisfied is False
+    assert unbound == ["free"]
+
+
+def test_build_vectors_refuses_a_vector_outside_the_theorem_scope(
+    script: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The guard must reject, not compute-and-discard. Forcing the check to fail must stop the
+    vector set being built at all."""
+    monkeypatch.setattr(script, "formula_vars_quantified", lambda _claim: (False, ["planted"]))
+    with pytest.raises(ValueError, match="FormulaVarsQuantified"):
+        script.build_vectors()
+
+
+def test_wellformedness_mirrors_leans_fail_closed_lookups(script: Any) -> None:
+    """An unresolvable id resolves the way `Wellformed.lean` resolves it, not the way Python's
+    validator would. `Formula.Mentions` is `False` on a missed `findPredicate`, so an unknown
+    predicate mentions nothing; `BoundBy` needs `findDomain` to succeed, so a block naming an
+    unknown domain binds nothing. Neither raises."""
+    axis = IntervalDomain(domain_id="B.v", variable_id="v", lower=Rational(0), upper=Rational(1))
+    unknown_predicate = SimpleNamespace(
+        predicates=(),
+        formula=Formula.predicate("absent"),
+        domains=(BoxDomain("B", components=(axis,)),),
+        quantifiers=(QuantifierBlock(QuantifierKind.EXISTS, ("v",), "B"),),
+    )
+    assert script.formula_vars_quantified(unknown_predicate) == (True, [])
+
+    predicate = Predicate(
+        predicate_id="uses_v",
+        left=Polynomial(terms=(Term(Rational(1), powers=(MonomialPower("v", 1),)),)),
+        relation=Relation.GT,
+        right=Polynomial.zero(),
+    )
+    unknown_domain = SimpleNamespace(
+        predicates=(predicate,),
+        formula=Formula.predicate("uses_v"),
+        domains=(),
+        quantifiers=(QuantifierBlock(QuantifierKind.EXISTS, ("v",), "absent"),),
+    )
+    assert script.formula_vars_quantified(unknown_domain) == (False, ["v"])
 
 
 def test_guard_lines_map_to_every_vector(script: Any, vectors: list[Any]) -> None:

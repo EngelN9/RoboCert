@@ -41,7 +41,13 @@ def ratPow (v : Rat) : Nat → Rat
   | n + 1 => v * ratPow v n
 
 /-- Evaluate a monomial. `none` if any variable is unbound -- mirrors the `KeyError` that
-`src/robocert/checkers.py:145` catches and turns into a rejection. -/
+`src/robocert/checkers.py:145` catches and turns into a rejection.
+
+The mechanism is faithful; the path is not live. From a valid `Claim` this `none` is
+unreachable: every predicate variable must be declared and every declared variable quantified
+exactly once (`specification.py:746`, `:751`), so the domain-membership check rejects a missing
+binding before the formula is evaluated at all. Both sides still reject, for different reasons.
+Recorded as divergence 9 in `formal/README.md`. -/
 def evalPowers (e : Env) : List MonomialPower → Option Rat
   | [] => Option.some 1
   | pw :: rest =>

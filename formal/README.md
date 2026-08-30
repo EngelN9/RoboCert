@@ -113,13 +113,19 @@ Recorded so that a correspondence review has a checklist rather than a diff.
 6. The upstream methodology manual uses a `lean/` directory
    (`docs/methodology/anthropic-research-methodology-source.md:80`); this project uses
    `formal/`.
-7. **A missing domain fails closed in Lean; in Python it would raise.** `blockWitnessOk`
-   (`Checker.lean:69`) returns `false` when `Claim.findDomain` misses. `checkers.py:127` does a
-   bare `domains_by_id[block.domain_id]` lookup, which would raise an uncaught `KeyError`.
-   Unreachable from a valid `Claim` — `specification.py:737` rejects a quantifier naming an
-   unknown domain at construction — so this is the same shape as divergence 2: the Lean syntax
-   type can represent a state the runtime refuses to build. Found while writing the conformance
-   harness, which is what it is for. Neither side changed.
+7. **A missing domain fails closed in Lean; in Python it would raise, and be caught.**
+   `blockWitnessOk` (`Checker.lean:69`) returns `false` when `Claim.findDomain` misses.
+   `checkers.py:127` does a bare `domains_by_id[block.domain_id]` lookup, which would raise
+   `KeyError`. Two independent things make that benign, and both are worth stating because
+   either alone would be weaker. First, it is unreachable: `specification.py:737` rejects a
+   quantifier naming an unknown domain at construction, so no valid `Claim` reaches the lookup.
+   Second, if it were reached the exception would not escape — `checking.py:140` wraps every
+   `checker.check` call in `except Exception` ("fail closed at the trusted checker boundary")
+   and returns a rejection, which `results.unknown_from_check` maps to `UNKNOWN`. So the two
+   sides differ in mechanism (`false` versus caught-exception) and agree in outcome. This is
+   the same shape as divergence 2: the Lean syntax type can represent a state the runtime
+   refuses to build. Found while writing the conformance harness, which is what it is for.
+   Neither side changed.
 8. **Empty `and`/`or` are reachable in Lean, unconstructible in Python.** `Formula.HoldsAll [] =
    True` and `Formula.HoldsAny [] = False` mirror Python's `all()`/`any()`, but
    `specification.py:497` rejects an `and`/`or` formula with no operands, so no vector can
@@ -150,7 +156,27 @@ witness inside the box that falsifies the formula; a missing binding; an extra b
 `infeasible` conclusion; a `forall` block (the RC-002 guard); all four open/closed interval
 boundary flags with the witness exactly on the endpoint; two existential blocks; nested `not`,
 a disjunction whose first operand is false, a failing conjunction; and exponent/coefficient
-arithmetic against Lean's hand-written `ratPow`.
+arithmetic against Lean's hand-written `ratPow`. Every one of them is additionally
+required to satisfy the soundness theorem's hypothesis — see "In scope for the theorem" below.
+
+**In scope for the theorem.** `exactWitness_sound` does not conclude anything about an
+arbitrary claim: it assumes `hwf : c.FormulaVarsQuantified` (`Wellformed.lean`). A vector
+violating that hypothesis could agree perfectly on the Bool and still sit entirely outside the
+theorem, which would make its agreement worthless as evidence for soundness. Every vector is
+therefore required to satisfy it, and `build_vectors` raises rather than admitting one that
+does not.
+
+That check is also, as far as it goes, the differential evidence `Wellformed.lean` asks for:
+its header records that "the Python validator implies this Lean predicate is asserted, not
+proved", and names this harness as the mechanism. Eighteen instances is what the harness can
+supply. **Its limit, stated rather than glossed:** `formula_vars_quantified` is a Python
+*restatement* of the Lean predicate, evaluated on Python `Claim` objects. It resolves
+unresolvable ids exactly as the Lean definitions do (an unknown predicate mentions nothing; a
+block naming an unknown domain binds nothing) and is guarded by a non-vacuity control, but it
+is not the Lean predicate evaluated on the Lean terms. The stronger form — a decidable `Bool`
+mirror in `Wellformed.lean` with a `... = true → c.FormulaVarsQuantified` lemma, `#guard`ed per
+vector and added to the axiom audit — is a deliberate deferral, not an oversight. The
+obligation stays open.
 
 **Not covered, and not claimed.** Agreement on 18 vectors is differential evidence, not a proof
 of equivalence (`AGENTS.md` §66). It says nothing about vectors outside the set. It also says

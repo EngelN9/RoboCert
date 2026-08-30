@@ -13,9 +13,14 @@ quantifier block's domain. In Python this follows from three separate checks:
   * `specification.py:738-743` -- a block's `variable_ids` equal its domain's component
     variables, in order.
 
-**Correspondence obligation (open, Phase 0.5b):** that the Python validator implies this Lean
-predicate is asserted, not proved. It is exactly the kind of claim the differential
-conformance harness is for. Recorded in `formal/README.md`.
+**Correspondence obligation (still open, Phase 0.5b):** that the Python validator implies this
+Lean predicate is asserted, not proved. `scripts/check_lean_conformance.py` now supplies
+differential evidence for it -- every conformance vector is required to satisfy a Python
+restatement of this predicate, and building the vector set fails if one does not. That is
+evidence on a finite set of `Claim` objects, checked against a restatement rather than against
+this definition, so the obligation is narrowed and not discharged. Closing it needs a decidable
+`Bool` mirror here, a `... = true -> c.FormulaVarsQuantified` lemma, and an entry in
+`Audit.lean`. See `formal/README.md`, "Differential conformance".
 -/
 import RoboCert.Semantics
 

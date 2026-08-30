@@ -12,12 +12,19 @@ It builds claim/certificate vectors once, runs each through the real shipped
 vector asserting the Lean model returns the same Bool, and runs it through `lake env lean`.
 A disagreement fails the build.
 
+Every vector is additionally required to satisfy `Wellformed.lean`'s
+`Claim.FormulaVarsQuantified`, which `exactWitness_sound` assumes: without that, a vector could
+agree perfectly and still sit outside the theorem's scope.
+
 **What this establishes, and what it does not.** Agreement on a finite vector set is
 differential evidence, not a proof of equivalence (`AGENTS.md` SS66). It says nothing about
 vectors outside the set, and nothing at all about the parts of the Python path the Lean model
 deliberately omits: payload parsing (`checkers.py::_parse_witness`), the metadata and hash
 cross-checks in `checking.py::_run_checker`, and `attestation.py::AttestedChecker`. See
-`formal/README.md`, "Deliberate divergences".
+`formal/README.md`, "Deliberate divergences". The well-formedness check has its own named
+limit: `formula_vars_quantified` is a Python *restatement* of the Lean predicate, checked
+against Python `Claim` objects, so it is evidence for `Python validator => FormulaVarsQuantified`
+on the vectors -- not the Lean predicate evaluated on the Lean terms.
 
 **A disagreement is a finding, not a bug to paper over.** `formal/AGENTS.md`, "When a model and
 the implementation disagree", forbids conforming the model to Python. Report it.
@@ -268,6 +275,41 @@ class Vector:
 _MODEL_HASH = digest_json({"model": "lean-conformance-vectors"})
 
 
+def formula_vars_quantified(claim: Claim) -> tuple[bool, list[str]]:
+    """Python restatement of `Wellformed.lean::Claim.FormulaVarsQuantified`.
+
+    `exactWitness_sound` takes that predicate as a hypothesis `hwf`, so for a claim not
+    satisfying it the soundness theorem says nothing at all. A vector that violated it would
+    still be checked for Bool agreement and would still look like conformance, while sitting
+    outside the theorem's scope entirely -- so the vector set has to be shown to stay inside it.
+
+    Every unresolvable reference is resolved the way the Lean predicate resolves it, not the
+    way Python's validator would: `Formula.Mentions` is `False` for an id `findPredicate`
+    misses, so an unknown predicate mentions nothing; `BoundBy` requires `findDomain` to
+    succeed, so a block naming an unknown domain binds nothing. Mirroring those choices is the
+    point -- a restatement that "helpfully" raised on a missing id would be a different
+    predicate.
+
+    Returns the verdict and the variables the formula mentions but no quantifier block binds.
+    """
+    predicates = {item.predicate_id: item for item in claim.predicates}
+    mentioned: set[str] = set()
+    for predicate_id in claim.formula.predicate_ids:
+        predicate = predicates.get(predicate_id)
+        if predicate is not None:
+            mentioned |= predicate.variable_ids
+
+    domains = {item.domain_id: item for item in claim.domains}
+    bound: set[str] = set()
+    for block in claim.quantifiers:
+        domain = domains.get(block.domain_id)
+        if domain is not None:
+            bound |= {component.variable_id for component in domain.components}
+
+    unbound = sorted(mentioned - bound)
+    return not unbound, unbound
+
+
 def _certificate(
     claim: Claim,
     witness: dict[str, Rational],
@@ -511,6 +553,15 @@ def build_vectors() -> list[Vector]:
 
     vectors: list[Vector] = []
     for name, claim, witness, conclusion in raw:
+        satisfied, unbound = formula_vars_quantified(claim)
+        if not satisfied:
+            # Not an assertion: `python -O` would drop it, and this is the guard that keeps the
+            # vector set inside the scope of the theorem the whole harness exists to connect.
+            raise ValueError(
+                f"vector {name!r} does not satisfy Wellformed.lean's FormulaVarsQuantified "
+                f"(unbound in the formula: {unbound}). `exactWitness_sound` assumes it, so "
+                "agreement on this vector would say nothing about the soundness theorem."
+            )
         certificate = _certificate(claim, witness, conclusion)
         decision = planar2r_exact_witness_checker.check(claim, certificate)
         vectors.append(Vector(name, claim, certificate, witness, decision.accepted))
