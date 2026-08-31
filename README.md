@@ -1651,7 +1651,13 @@ robocert/
 
 ## 31. Development roadmap
 
-### Phase 0 — mathematical specification
+`ROADMAP.md` is the canonical phased plan; the phases below carry **its** numbering. Earlier
+revisions of this section used an independent nine-phase numbering that diverged from
+`ROADMAP.md` from Phase 2 onward — "Phase 3" meant SOS/SDP in one document and C-space collision
+regions in the other, and three ROADMAP phases had no README counterpart at all. Anything citing
+a README phase number from before this correction should be reread against the table here.
+
+### Phase 0 — formal semantics and certification kernel
 
 Deliverables:
 
@@ -1663,11 +1669,11 @@ Deliverables:
 
 **Exit criterion:** the meaning of `CERTIFIED_FEASIBLE` is mathematically unambiguous.
 
-### Phase 1 — planar exact prototype
+### Phase 1 — exact planar 2R certification
 
 Robot:
 
-- 2R / 3R planar manipulator.
+- 2R planar manipulator.
 
 Capabilities:
 
@@ -1680,7 +1686,16 @@ Capabilities:
 
 **Exit criterion:** at least two independent rigorous methods agree on benchmark certificates.
 
-### Phase 2 — polynomial optimization prototype
+### Phase 2 — planar 3R and quantifier alternation
+
+Add:
+
+- redundancy and multiple IK branches;
+- disconnected feasible sets and branch transitions;
+- genuine `∀x ∃q` task-region quantification;
+- the explicit split between pointwise reachability and continuous lift.
+
+### Phase 3 — SOS/SDP certification backend
 
 Add:
 
@@ -1690,7 +1705,7 @@ Add:
 - validated certificate checker;
 - singularity-margin certificates.
 
-### Phase 3 — C-space collision regions
+### Phase 4 — certified C-space collision regions
 
 Integrate:
 
@@ -1699,7 +1714,7 @@ Integrate:
 - conservative geometry conversion;
 - region serialization.
 
-### Phase 4 — robust tolerances
+### Phase 5 — robust manufacturing and calibration tolerances
 
 Add:
 
@@ -1708,7 +1723,16 @@ Add:
 - robust collision margins;
 - calibration/manufacturing uncertainty.
 
-### Phase 5 — industrial CAD ingestion
+### Phase 6 — industrial 6-DOF local certification
+
+Add:
+
+- URDF/Drake model import;
+- local certified C-space regions rather than global certification;
+- joint-limit and singularity margins on a standard manipulator;
+- replayable certificate checking without rerunning the search.
+
+### Phase 7 — CAD/B-Rep ingestion
 
 Add:
 
@@ -1717,7 +1741,7 @@ Add:
 - tool/workstation assemblies;
 - provenance hashes.
 
-### Phase 6 — continuous task certification
+### Phase 8 — continuous task and path certification
 
 Add:
 
@@ -1726,15 +1750,23 @@ Add:
 - certified path families;
 - connected safe-region reasoning.
 
-### Phase 7 — multi-agent orchestration
+### Phase 9 — certified infeasibility and minimal conflict analysis
+
+Add:
+
+- independent infeasibility certificate families;
+- minimal/small conflict-set extraction;
+- engineering explanations traced back to joint limits, clearance, or tolerance assumptions.
+
+### Phase 10 — multi-agent research orchestration
 
 Add agents only after deterministic mathematical APIs exist.
 
 The agent layer should consume the formal APIs rather than define their semantics.
 
-### Phase 8 — dynamics
+### Beyond Phase 10 — dynamics
 
-Possible future extension:
+Not a numbered phase, and deliberately outside `ROADMAP.md`'s plan. A possible future extension:
 
 \[
 M(q)\ddot q+C(q,\dot q)\dot q+g(q)=\tau

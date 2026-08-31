@@ -112,7 +112,31 @@ The following may propose evidence but can never directly emit a certified resul
 - orchestration agents or LLM output;
 - reporting and visualization layers;
 - third-party code implementing the `Checker` protocol but not registered by the
-  RoboCert package.
+  RoboCert package;
+- **every external mathematical or robotics system**, named explicitly so the boundary is not a
+  matter of interpretation: Drake and C-IRIS, SymPy, SageMath, Julia with SumOfSquares.jl and
+  JuMP, Risa/Asir, CoCoA, Singular, dReal and iSAT. Each may propose a candidate certificate.
+  None is a dependency of this package, none executes during `check`, and none can raise a
+  result above `UNKNOWN` by succeeding. A solver reporting "solved" contributes exactly one
+  thing: an artifact for a RoboCert checker to re-derive exactly. See
+  `docs/architecture/backends.md`.
+
+Two of those deserve a specific note, because their output is easy to mistake for a proof.
+**dReal's δ-satisfiability is not satisfiability** — it concerns a δ-perturbed problem, so it maps
+to `UNKNOWN`; only an exact rational counterexample, re-evaluated here, yields `COUNTEREXAMPLE`.
+**Quantifier-elimination output is not independently checkable** without redoing the elimination,
+so QE backends stay experimental and cannot support a `CERTIFIED_*` family.
+
+### Exact-algebra utilities (not trusted, not registered)
+
+`src/robocert/polynomial.py`, `src/robocert/linalg_exact.py`, and `src/robocert/sos.py` provide
+exact rational polynomial arithmetic, an exact PSD decision, and Positivstellensatz certificate
+verification. They add no dependency — `dependencies` remains empty.
+
+`sos.py` is **not** a `Checker` and is registered nowhere. It verifies an algebraic identity plus
+a PSD condition, which is Positivstellensatz *sufficiency* and elementary. It is not RC-001,
+which claims the SOS scheme suits the planar-2R singularity-margin reduction and is `E0`. Binding
+this verifier to a certificate family is a separate change subject to the obligations below.
 
 Phase 0 deliberately registers no production checker. Test code temporarily
 installs either a deterministic fixture checker or the quarantined RC-002
