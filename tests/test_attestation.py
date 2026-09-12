@@ -492,15 +492,12 @@ def test_policy_rejects_an_empty_requirement_set() -> None:
         AttestationPolicy(required_systems=(), allowed_axioms={})
 
 
-def test_committed_attestation_record_matches_real_policy_and_is_honestly_incomplete() -> None:
+def test_committed_attestation_record_matches_real_policy_and_is_complete() -> None:
     """Load formal/attestations/planar2r-exact-witness.json and feed its `attestations`
     block through the REAL PLANAR2R_ATTESTATION_POLICY, not a re-description of it.
 
-    This is the permanent form of the manual check run when the record was authored: the
-    record's own comment claims that verify_certificate() rejects it because rocq and
-    isabelle are unattested. That claim must not silently go stale -- if a future edit to
-    the record or the policy makes them agree by accident (e.g. someone adds a rocq entry
-    without actually running Rocq), this test is what catches it.
+    This checks the reviewed transcription against the runtime policy. Kernel reruns and
+    source/statement digest checks remain scripts/check_attestations.py's responsibility.
     """
     record_path = (
         Path(__file__).resolve().parent.parent
@@ -527,9 +524,7 @@ def test_committed_attestation_record_matches_real_policy_and_is_honestly_incomp
 
     violations = PLANAR2R_ATTESTATION_POLICY.violations(certificate)
 
-    assert any("rocq" in v for v in violations)
-    assert any("isabelle" in v for v in violations)
-    assert not any("lean4" in v for v in violations)
+    assert violations == ()
 
 
 def test_conclusion_still_constrains_the_inner_checker(

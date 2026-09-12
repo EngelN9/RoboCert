@@ -10,22 +10,23 @@
     "outside `attestations` (`sources`, `statements`, `pending_systems`) are repo-side",
     "bookkeeping and are NOT part of the wire format that src/robocert/attestation.py reads.",
     "",
-    "Only the lean4 entry is currently committed: `lake build` in formal/ was run and",
-    "scripts/check_lean_axioms.py confirmed RoboCert.exactWitness_sound depends on exactly",
+    "The lean4 entry records `lake build` plus scripts/check_lean_axioms.py confirming",
+    "RoboCert.exactWitness_sound depends on exactly",
     "[propext, Classical.choice, Quot.sound] -- no sorryAx. That theorem is the soundness",
     "statement for exactly the checker this instance's certificate uses.",
     "",
-    "rocq and isabelle are NOT yet attested. Both kernels have built in exact-head CI, and",
-    "Rocq's per-declaration axiom extractor has passed its planted positive control. This",
-    "revision adds equivalent Isabelle oracle extraction and makes `--require SYSTEM` rerun",
-    "a prover after promotion. Fresh exact-head evidence from those hardened paths must still",
-    "be reviewed before either entry is transcribed. Inventing entries from older or partial",
-    "evidence would violate AGENTS.md Sec22.5, Sec66, and formal/AGENTS.md rule 7.",
+    "The rocq and isabelle entries were transcribed after reviewing exact-head CI run",
+    "33356967720 at commit 0531db56736b4777b9323de03a60c4b684dea486. Each required",
+    "kernel reran through the hardened path, its planted positive control passed, every",
+    "digest and certificate binding matched the committed files, and all real declaration",
+    "axiom/oracle sets were empty. The downloaded evidence remains provenance rather than",
+    "an attestation entry; future CI reruns promoted systems and fails closed on drift.",
     "",
     "Consequence, verified by scripts/check_attestations.py and pinned by",
-    "tests/test_attestation.py: feeding this record's `attestations` block into",
-    "verify_certificate() is REJECTED, because two of three required systems have no usable",
-    "attestation. That is the tightening gate working as designed, not a defect."
+    "tests/test_attestation.py: this record now satisfies PLANAR2R_ATTESTATION_POLICY.",
+    "That policy result covers the recorded proof-assistant evidence only; it does not",
+    "register a production checker, promote an RC claim, or establish Python/model or",
+    "physical-model correspondence."
   ],
   "certificate": {
     "certificate_id": "planar2r-attested-instance",
@@ -59,15 +60,32 @@
         "artifact_digest": "sha256:12b5dfae30d4e0122f300e8c4df2677a4f67343bbffd70023c6ec2695b3b68fc",
         "axioms": ["propext", "Classical.choice", "Quot.sound"],
         "kernel_accepted": true
+      },
+      {
+        "system": "rocq",
+        "toolchain": "The Rocq Prover, version 9.2",
+        "claim_hash": "sha256:72b52d0a6eae0d41b7ee4a95304501f478bd46665f6b25b1080660456041092a",
+        "model_hash": "sha256:021ca85870a25f934b1c84e55fc5a527260caabac5f8522a54a7fe5a059521a8",
+        "checker_id": "robocert.planar2r_exact_witness.attested",
+        "checker_version": "0.1.0",
+        "statement_digest": "sha256:e2c5e5b83394ff8240ba7bacee1ee68f50471a49b941e1ae27d2e896da103aa9",
+        "artifact_digest": "sha256:1b34198123a23b781c5e8e3620a6971a50754a93eeaa15f783facc6af47e3526",
+        "axioms": [],
+        "kernel_accepted": true
+      },
+      {
+        "system": "isabelle",
+        "toolchain": "Isabelle2025",
+        "claim_hash": "sha256:72b52d0a6eae0d41b7ee4a95304501f478bd46665f6b25b1080660456041092a",
+        "model_hash": "sha256:021ca85870a25f934b1c84e55fc5a527260caabac5f8522a54a7fe5a059521a8",
+        "checker_id": "robocert.planar2r_exact_witness.attested",
+        "checker_version": "0.1.0",
+        "statement_digest": "sha256:a677d4e07ddcd7e65b5eb316dcde723db4854f6584fc2cf413610c91aa802dd9",
+        "artifact_digest": "sha256:5a04a903d38f737a9c070f1e06c30125f971496005e4ded990fd7ce914fa98f2",
+        "axioms": [],
+        "kernel_accepted": true
       }
     ]
   },
-  "pending_systems": {
-    "rocq": {
-      "reason": "Prior exact-head CI built the kernel and extracted clean axioms; awaiting fresh hardened-path evidence and reviewed transcription"
-    },
-    "isabelle": {
-      "reason": "Prior exact-head CI built the kernel; awaiting the new oracle extractor's planted-control evidence and reviewed transcription"
-    }
-  }
+  "pending_systems": {}
 }

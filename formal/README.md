@@ -64,17 +64,16 @@ Absent that re-run, an attestation is **provenance, not proof**.
 | Certificate payload parsing / hash binding | **NOT MODELLED** by Lean. `verify_certificate`'s metadata cross-checks are a separate concern |
 | Rocq: `formal/rocq/RoboCert/Planar2R.v` compiles with no `admit` | **CONFIRMED** — the `rocq` CI job reports "toolchain available and compiled cleanly" under `--require rocq` on Rocq 9.2. Getting there took three fixes: a false green (job passed with no Rocq on PATH), the Rocq 9 rename of `coqc` to `rocq compile`, and one genuinely FALSE lemma the kernel caught (divergence 5 below) |
 | Isabelle: `formal/isabelle/RoboCert/Planar2R.thy` builds with no `sorry` | **CONFIRMED** — the `isabelle` CI job reports "session built cleanly" under `--require isabelle`, so a real kernel ran. Its first attempt failed on a `ROOT` layout error (theory in a subdirectory needs an explicit `directories` declaration), not on the mathematics |
-| The committed attestation record is rejected by `PLANAR2R_ATTESTATION_POLICY` | **CONFIRMED** — `tests/test_attestation.py::test_committed_attestation_record_matches_real_policy_and_is_honestly_incomplete` runs the real policy against it, not a description of the policy |
+| The committed attestation record satisfies `PLANAR2R_ATTESTATION_POLICY` | **CONFIRMED** — after reviewed transcription from exact-head CI run 33356967720, `tests/test_attestation.py::test_committed_attestation_record_matches_real_policy_and_is_complete` runs the real policy against it, not a description of the policy |
 
 All three kernel rows are now settled facts, each confirmed by a kernel that actually ran in
-CI under a `--require` assertion that makes a toolchain-absent false pass impossible. Everything else is an open bridge or an honestly unconfirmed claim, and the table
-says so rather than implying otherwise. Note that a kernel building does NOT make it an
-attestation: `formal/attestations/planar2r-exact-witness.json` still carries no
-`kernel_accepted` entry for it, because promoting one out of `pending_systems` requires
-recording the toolchain and digests from that specific successful run (`formal/AGENTS.md`
-rule 7).
+CI under a `--require` assertion that makes a toolchain-absent false pass impossible. Rocq and
+Isabelle were transcribed only after reviewing run 33356967720 at exact commit `0531db5`,
+including its uploaded evidence, source and statement digests, certificate bindings, empty
+real dependency sets, and planted positive controls. Everything else is an open bridge or an
+honestly unconfirmed claim, and the table says so rather than implying otherwise.
 
-### What still blocks promoting Rocq and Isabelle
+### How Rocq and Isabelle were promoted
 
 `check_attestations.py --emit-evidence DIR` now captures what a successful kernel run knows
 and the repository cannot reconstruct: the exact toolchain string that accepted the proof.
@@ -84,9 +83,10 @@ discarded it. The `rocq` and `isabelle` jobs now write that evidence and upload 
 artifact. It is gitignored, never committed — a checked-in copy would be a stale claim about a
 run that is over.
 
-That closes the recoverable half. Per-declaration axiom/oracle extraction is now implemented for
-both systems. Promotion still requires a fresh exact-head run of these hardened paths, review of
-both evidence artifacts, and manual transcription; the script never self-promotes an entry.
+Per-declaration axiom/oracle extraction is implemented for both systems. Exact-head run
+33356967720 exercised both hardened paths; both evidence artifacts were reviewed and manually
+transcribed. The script still never self-promotes an entry, and future CI reruns every promoted
+system when its dedicated job uses `--require SYSTEM`.
 
 **Rocq: extracted and checked**, confirmed on a real kernel — the first CI run reported
 "axiom audit clean for 5 declaration(s) (positive control passed)", so the extractor demonstrably
