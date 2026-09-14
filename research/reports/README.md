@@ -1,5 +1,11 @@
 # Reports
 
+## Implementation audits
+
+- [2026-09-07 counterexample and simulation audit](2026-09-07-counterexample-simulation-audit.md):
+  result v0.2 migration, refutation API review, simulation validation, fresh local
+  checks, and outstanding hardening obligations. This record does not promote a research tier.
+
 One report per `ROADMAP.md` §13 milestone (e.g. `01-formal-claim-schema.md`,
 `06-2r-robust-reachability-certificate.md`), written continuously as work
 progresses, not assembled at the end. A report is the project's actual output even

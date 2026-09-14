@@ -2322,6 +2322,18 @@ For each solver, document:
 
 A proprietary or opaque solver MAY be used for candidate search if its output is independently certifiable.
 
+Currently declared solvers and simulators:
+
+| Tool | MuJoCo |
+| --- | --- |
+| License | Apache-2.0 |
+| Version | `mujoco>=3.2,<4`, the optional `mujoco` extra in `pyproject.toml`; the exact resolved version is recorded in every falsification report |
+| Role | dynamic simulation, contact/collision experiments, actuator-torque and joint-limit observation, adversarial sampling of a candidate configuration region |
+| Trusted status | **untrusted to run and untrusted to prove** — search side only. It is not in the runtime certification path, `dependencies` stays empty, and `import robocert` never loads it |
+| Certificate output | none, and it never becomes one. It simulates a higher-fidelity model than the claim quantifies over, so a violation it finds is a candidate requiring exact re-validation under §31 before any `COUNTEREXAMPLE` |
+| Reproducibility | relative to the recorded MuJoCo version, model SHA-256, seed, timestep, solver settings, and sample count. Not claimed across versions or platforms |
+| Failure semantics | `FalsificationOutcome.SIMULATION_ERROR`; never infeasibility, never a lowered standard. `NO_COUNTEREXAMPLE_FOUND` means only that a finite sample found nothing (§4.4) |
+
 The same disclosure applies to proof assistants. Currently declared:
 
 | Tool | Lean 4 |
