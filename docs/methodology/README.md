@@ -1,6 +1,6 @@
 # Methodology sources
 
-This directory holds the two source manuals that RoboCert's research-process layer
+This directory holds the source manuals that RoboCert's research-process layer
 (`research/`, `.codex/`, `.claude/`) is adapted from:
 
 - [`anthropic-research-methodology-source.md`](anthropic-research-methodology-source.md)
@@ -12,8 +12,15 @@ This directory holds the two source manuals that RoboCert's research-process lay
   — "Using OpenAI Tools as a Coordinated Mathematical Research Environment." The
   theorem-compatibility table, reduction-certificate format, and claim-evidence
   ledger codes (`D`/`T`/`C`/`N`/`E`/`H`/`?`) informed the same layer.
+- [`fatal-flaw-rules-source.md`](fatal-flaw-rules-source.md) — "Professional Rules
+  for Handling Fatal Flaws in AI-Reviewed and Formally Verified Mathematical Proofs,"
+  forty rules on keeping intended theorem, specification, formal statement, and proof
+  distinct. Adapted, condensed to twelve rules, and mapped to existing mechanisms in
+  [`fatal-flaw-rules.md`](fatal-flaw-rules.md), which also records the three gaps it
+  closed (encoding fidelity, fatal-objection freeze, defect layer) and the one it states
+  (no tier requires an adversarial human review).
 
-Both manuals were written for attacking an open mathematical conjecture from
+The first two manuals were written for attacking an open mathematical conjecture from
 scratch. RoboCert is not that: it already has a mature soundness policy
 (`AGENTS.md`), a phased roadmap (`ROADMAP.md`), and a typed `Claim`/`Certificate`/
 `Checker` code stack. The manuals are adapted, not applied literally — see

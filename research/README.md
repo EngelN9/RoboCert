@@ -62,9 +62,17 @@ re-run, an attestation is provenance, not proof.
 All three systems are proof-time only. None is a runtime dependency, none appears in
 `dependencies`, and none is needed to reproduce a result under `AGENTS.md` §34.
 
-An optional `mechanized:` field on a ledger entry, naming the declaration(s) and toolchain
-pin(s) across whichever systems attest to it, is introduced when the first claim actually
-uses one. Until then no ledger entry carries it.
+A ledger entry records proof-assistant support in an optional `mechanized:` field, one
+bullet per declaration, and **must** then carry a `fidelity:` field (enforced by
+`scripts/check_ledger.py`). The two answer different questions. `mechanized:` says a kernel
+accepted *some* proposition; `fidelity:` says whether that proposition is the one the entry
+means, and records every known divergence -- a different quantifier domain, a different
+object (a checker model rather than an encoding), a weaker hypothesis. "Not independently
+checked" is an acceptable `fidelity:`; silence is not, because a kernel proves propositions,
+not intentions. The fields were introduced on 2026-09-11 for RC-002 and RC-005, well after
+those entries first acquired mechanized support; recording them is what surfaced that
+several formal statements are the rational instances of steps the proofs state over the
+reals.
 
 `E2` is not a weak form of `E3`. It is a different kind of evidence — several
 independent reviewers rather than one deterministic checker — and the two are not
@@ -120,3 +128,21 @@ research/
    `referee:` field. Both are enforced by `scripts/check_ledger.py`.
 4. Nothing in `research/` outranks `AGENTS.md`. If this directory's guidance and
    `AGENTS.md` conflict, `AGENTS.md` wins.
+5. **A credible fatal objection freezes acceptance at once.** When an objection to a claim
+   at `E1` or above is localized to a specific step, hypothesis, or definition -- not merely
+   asserted -- the same edit that records it demotes the claim: to `EX` if it comes with a
+   counterexample to the statement; otherwise to at most `E1`, and to `E0` if the objection
+   invalidates the written argument the `E1` read relied on. "Probably still fine because several reviewers
+   passed it" is not a status. Demotion cascades on its own: the monotonicity check then
+   rejects every dependent that outranks the demoted claim, so they come down in the same
+   edit (`tests/test_check_ledger.py` pins that cascade). Before blaming a kernel or a
+   referee, rule out the ordinary causes: a statement or definition mismatch, an imported
+   assumption, a different environment. The objection, its diagnosis, and the repair are
+   recorded, never silently replaced (`ATTEMPTS.md`, `history:`).
+6. **No tier currently requires an adversarial human review.** `E1` is a human read, which
+   is not adversarial; `E2` means the claim survived adversarial *AI* review, whose
+   reviewers share training data and failure modes however carefully their contexts are
+   separated (`docs/methodology/cross-verification-protocol-v2.md`, Part 6). That is a known
+   gap, stated rather than papered over. It is closed at one point only: registering a
+   production checker additionally requires an adversarial human review
+   (`docs/architecture/trusted-computing-base.md`, "Future certificate-family obligation").

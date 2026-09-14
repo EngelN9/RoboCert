@@ -21,13 +21,20 @@ depends: [RC-xxx, ...]        # or [] if none
 proof: <path to the argument, e.g. research/notes/...md>
 target_checker: <path to the checker this would justify, or "not yet implemented">
 referee: none | <path to the referee audit table, once E2+>
+mechanized:                   # optional; one bullet per proof-assistant declaration
+  - <system>: <file> <declaration> (<what that declaration states>)
+fidelity: <required whenever mechanized: is present -- how each formal statement was
+  compared with statement:, and every known divergence; "not independently checked"
+  is an acceptable answer, an omitted one is not>
 history:
   - <date> created E0
   - <date> -> E<n> after <reason>
 ```
 
 Tiers change only by appending a `history:` line in the same edit that changes
-`tier:`. `tier: E2` or above requires `referee:` to be non-`none`.
+`tier:`. `tier: E2` or above requires `referee:` to be non-`none`. `mechanized:`
+requires `fidelity:` -- a kernel accepting a proposition says nothing about whether it
+is the proposition this entry means (see `research/README.md` "Mechanization").
 
 ---
 
@@ -70,6 +77,25 @@ target_checker: src/robocert/checkers.py (research implementation only;
   "planar2r.exact_witness" is not registered in the production registry)
 referee: none (see history -- assisted review cannot establish E2, and frozen
   blind RUN001 stopped with substantive findings)
+mechanized:
+  - lean4: formal/RoboCert/Soundness.lean exactWitness_sound (a MODEL of the target
+    checker `ExactWitnessChecker` accepts only certificates whose witness satisfies
+    `Claim.Semantics` over Q)
+  - isabelle: formal/isabelle/RoboCert/Planar2R.thy bounded_existential_transport
+    (pointwise equivalence transports to bounded-existential equivalence on a closed box)
+fidelity: Recorded 2026-09-11 by reading the declarations against this entry and its
+  proof files; no independent comparison was performed. Neither declaration is RC-002's
+  statement. (a) The Lean theorem is about the checker model, not the encoding: it says
+  nothing about whether the tangent-half-angle encoding represents planar-2R geometry,
+  which is what RC-002 asserts, and its correspondence to the Python checker is
+  differential only (18 vectors, scripts/check_lean_conformance.py). Its attestation in
+  formal/attestations/planar2r-exact-witness.json hashes Soundness.lean and the statement
+  text only; `Claim.Semantics`, which fixes what the theorem says, lives in Semantics.lean
+  and is not covered by either digest (noted 2026-09-14). (b) The Isabelle
+  lemma formalizes the corrigendum's C2 step, whose hypothesis C2.1 is stated for
+  `t in R^2`; `in_box` binds `t1 t2 : rat`, so the artifact is the Q-instance of C2, not
+  C2. The proof is generic (`blast`) and restating it over `real` is expected to be
+  routine, but until that is done the formal statement is not the intended one.
 history:
   - 2026-08-16 created E0
   - 2026-08-16 note: an adversarial pass (independent from-scratch math
@@ -196,6 +222,28 @@ target_checker: not yet implemented; proposed future family
   "planar2r.pose_tolerance_witness" and checker
   "robocert.planar2r_pose_tolerance_witness" version "0.2.0"
 referee: none
+mechanized:
+  - rocq: formal/rocq/RoboCert/Planar2R.v pythagorean_identity,
+    segment1_nondegenerate_identity, segment2_nondegenerate_identity,
+    segment1_zero_implies_length_zero, segment2_zero_implies_length_zero (algebraic
+    identities over Q supporting the nondegeneracy of both encoded segments)
+  - isabelle: formal/isabelle/RoboCert/Planar2R.thy bounded_existential_transport,
+    singleton_box_admits_its_point, empty_box_forces_false (the box-restriction step
+    and the `a_i <= b_i` box semantics)
+fidelity: Recorded 2026-09-11 by reading the declarations against this entry and its
+  proof; no independent comparison was performed. Together these cover supporting facts,
+  not this entry's statement. (a) Rocq states identities over Q; the proof's pointwise
+  equivalence (7.1) is asserted "for every finite real (t1,t2)", so the Rocq lemmas are
+  the Q-instances of facts the proof uses over R. Rocq's own scope note excludes the `Seg`
+  three-branch analysis and all implementation correspondence. (b) The Isabelle transport
+  binds `t1 t2 : rat`, while the proof applies the existential to the real box
+  (Section 7) and `formal/RoboCert/Semantics.lean` reads this entry's bounded existential
+  as ranging over R. (c) This entry's `statement:` does not itself say whether `t`
+  ranges over R or Q. That omission is a statement-level gap (AGENTS.md sections 1 and 59
+  make the quantifier prefix, and each quantifier's domain, part of the theorem) for the
+  owner to settle.
+  Nothing here is changed by recording it. Lean does not mechanize this entry; its
+  Semantics.lean mentions RC-005 only to exclude it from the Q semantics.
 history:
   - 2026-08-24 created E0 with a self-contained argument covering tolerance
     denominator clearing, both actual geometric segments, selector coverage and
@@ -263,3 +311,36 @@ history:
     statement about equality multipliers alone, which would say nothing about nonnegativity.
     Both have dedicated tests. Neither is established by those tests -- a passing test is not a
     proof, and this entry stays E0 until the correspondence argument is written and read.
+
+## RC-007
+
+statement: `src/robocert/refutation.py::refute` returns an accepted `RefutationReport`
+  only when (i) every quantifier block of the serialized `Claim` is `forall`, (ii) the
+  assignment gives exactly one `Rational` value to each declared variable and no other,
+  (iii) each value lies in its declared interval with open and closed endpoints honoured,
+  and (iv) the claim's whole formula evaluates to false at that point in exact rational
+  arithmetic; consequently an accepted `CheckedCounterexample` establishes the negation of
+  the serialized universal claim, whether its variables are read as ranging over Q or over
+  R, since a rational point of the box is a real point of it.
+tier: E0
+depends: []
+proof: none yet. The logic being appealed to is elementary -- one point of the domain at
+  which the formula is false refutes a purely universal claim -- but what this entry asserts
+  is IMPLEMENTATION CORRESPONDENCE, exactly as RC-006 does for `sos.py`: that the shipped code
+  decides (i)-(iv) and nothing weaker. No written argument exists. Guard (iv) delegates to
+  `checkers.evaluate_formula`, the evaluator `ExactWitnessChecker` also uses, and that
+  evaluator's own correspondence is likewise unargued. Covered so far only by
+  tests/test_refutation.py, tests/test_simulation.py, tests/test_schemas.py
+target_checker: none. `refute` is not a `checking.Checker` and binds no certificate family;
+  it gates the `COUNTEREXAMPLE` status via `results.counterexample_result`
+referee: none
+history:
+  - 2026-09-11 created E0. Entered after the fact: `refute` shipped and was exported with
+    no ledger entry, on the argument (docs/architecture/trusted-computing-base.md, "The
+    second promotion path") that refutation is elementary and so needs no evidence gate.
+    That argument covers the mathematics, not the code, and RC-006 had already set the
+    precedent that code-to-condition correspondence is itself a claim. The omission is
+    worth recording because the gap is sharper here than for RC-006: `sos.py` is registered
+    nowhere, while `refute` sits on a live path to a result status. Whether that path
+    should stay open while this entry is E0 is the owner's decision; this entry does not
+    make it.
