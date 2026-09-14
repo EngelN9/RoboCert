@@ -11,11 +11,13 @@ from jsonschema import Draft202012Validator
 from jsonschema import ValidationError as SchemaValidationError
 
 from robocert import checking
+from robocert.artifacts import digest_json
 from robocert.certificates import Certificate
 from robocert.checking import CheckerDecision, verify_certificate
-from robocert.results import certified_result, unknown_result
+from robocert.refutation import refute
+from robocert.results import certified_result, counterexample_result, unknown_result
 from robocert.schemas import SCHEMA_NAMES, schema_document
-from robocert.specification import Claim, Unit
+from robocert.specification import Claim, Rational, Unit
 
 ROOT = Path(__file__).parents[1]
 
@@ -34,6 +36,7 @@ def test_packaged_schema_loader_matches_repository_contracts() -> None:
                 "claim.schema.json",
                 "certificate.schema.json",
                 "problem.schema.json",
+                "result-0.1.0.schema.json",
                 "result.schema.json",
             }
         )
@@ -109,3 +112,73 @@ def test_result_schema_rejects_status_conclusion_mismatch(
 
     with pytest.raises(SchemaValidationError):
         Draft202012Validator(load_schema("result.schema.json")).validate(mismatched)
+
+
+def test_counterexample_result_matches_versioned_schema(
+    make_universal_claim: Callable[..., Claim],
+) -> None:
+    claim = make_universal_claim()
+    report = refute(claim, digest_json({"model": "schema-fixture"}), {"q": Rational(3, 4)})
+    assert report.checked_counterexample is not None
+
+    document = counterexample_result(report.checked_counterexample).to_dict()
+    Draft202012Validator(load_schema("result.schema.json")).validate(document)
+
+
+def test_result_schema_rejects_a_counterexample_without_its_witness(
+    make_universal_claim: Callable[..., Claim],
+) -> None:
+    report = refute(
+        make_universal_claim(), digest_json({"model": "schema-fixture"}), {"q": Rational(3, 4)}
+    )
+    assert report.checked_counterexample is not None
+    stripped = deepcopy(counterexample_result(report.checked_counterexample).to_dict())
+    stripped["counterexample"] = None
+
+    with pytest.raises(SchemaValidationError):
+        Draft202012Validator(load_schema("result.schema.json")).validate(stripped)
+
+
+def test_result_schema_rejects_a_witness_on_a_non_counterexample_status() -> None:
+    document = deepcopy(
+        unknown_result(
+            digest_json({"claim": 1}), digest_json({"model": 1}), ("gate closed",)
+        ).to_dict()
+    )
+    document["counterexample"] = {
+        "claim_id": "smuggled",
+        "claim_hash": str(digest_json({"claim": 1})),
+        "model_hash": str(digest_json({"model": 1})),
+        "assignment": [{"variable_id": "q", "value": {"numerator": 3, "denominator": 4}}],
+        "assumption_ids": [],
+        "arithmetic_mode": "exact-rational",
+    }
+
+    with pytest.raises(SchemaValidationError):
+        Draft202012Validator(load_schema("result.schema.json")).validate(document)
+
+
+def test_historical_result_schema_remains_available_unchanged() -> None:
+    """The published v0.1 contract remains loadable rather than being mutated in place."""
+
+    document = deepcopy(
+        unknown_result(
+            digest_json({"claim": 1}), digest_json({"model": 1}), ("gate closed",)
+        ).to_dict()
+    )
+    document["schema_version"] = "0.1.0"
+    del document["counterexample"]
+
+    Draft202012Validator(load_schema("result-0.1.0.schema.json")).validate(document)
+
+
+def test_current_result_schema_requires_the_counterexample_field() -> None:
+    document = deepcopy(
+        unknown_result(
+            digest_json({"claim": 1}), digest_json({"model": 1}), ("gate closed",)
+        ).to_dict()
+    )
+    del document["counterexample"]
+
+    with pytest.raises(SchemaValidationError):
+        Draft202012Validator(load_schema("result.schema.json")).validate(document)

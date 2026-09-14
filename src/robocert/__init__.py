@@ -9,12 +9,20 @@ from robocert.checking import (
     CheckReport,
     verify_certificate,
 )
+from robocert.refutation import (
+    CheckedCounterexample,
+    RefutationReport,
+    refute,
+)
 from robocert.results import (
+    RESULT_SCHEMA_VERSION,
     CertificationResult,
     ResultStatus,
     certified_result,
+    counterexample_result,
     numerical_result,
     unknown_from_check,
+    unknown_from_refutation,
     unknown_result,
 )
 from robocert.schemas import SCHEMA_NAMES, schema_document
@@ -45,6 +53,7 @@ from robocert.specification import (
 __version__ = "0.1.0a0"
 
 __all__ = [
+    "RESULT_SCHEMA_VERSION",
     "SCHEMA_NAMES",
     "ArtifactDigest",
     "Assumption",
@@ -54,6 +63,7 @@ __all__ = [
     "CertificationResult",
     "CheckReport",
     "CheckedCertificate",
+    "CheckedCounterexample",
     "Checker",
     "CheckerDecision",
     "Claim",
@@ -69,6 +79,7 @@ __all__ = [
     "QuantifierBlock",
     "QuantifierKind",
     "Rational",
+    "RefutationReport",
     "Relation",
     "ResultStatus",
     "Term",
@@ -78,10 +89,13 @@ __all__ = [
     "Variable",
     "canonical_json_bytes",
     "certified_result",
+    "counterexample_result",
     "digest_json",
     "numerical_result",
+    "refute",
     "schema_document",
     "unknown_from_check",
+    "unknown_from_refutation",
     "unknown_result",
     "verify_certificate",
 ]

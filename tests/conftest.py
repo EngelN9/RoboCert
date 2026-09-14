@@ -81,6 +81,65 @@ def sample_claim() -> Claim:
 
 
 @pytest.fixture
+def make_universal_claim() -> Callable[..., Claim]:
+    """Factory for `forall q1..qn in [-1, 1]^n: q1 <= 1/2`.
+
+    Purely universal by default, so a single point can refute it; false at every point whose
+    first coordinate exceeds one half. `kind` exists so tests can build the same claim with a
+    prefix that a point CANNOT refute.
+    """
+
+    def factory(
+        *,
+        variable_ids: tuple[str, ...] = ("q",),
+        kind: QuantifierKind = QuantifierKind.FORALL,
+        lower_closed: bool = True,
+        upper_closed: bool = True,
+    ) -> Claim:
+        axes = tuple(
+            IntervalDomain(
+                domain_id=f"Q.{variable_id}",
+                variable_id=variable_id,
+                lower=Rational(-1),
+                upper=Rational(1),
+                unit=Unit.RADIAN,
+                lower_closed=lower_closed,
+                upper_closed=upper_closed,
+            )
+            for variable_id in variable_ids
+        )
+        predicate = Predicate(
+            predicate_id="first_below_half",
+            left=Polynomial(
+                terms=(Term(Rational(1), powers=(MonomialPower(variable_ids[0], 1),)),)
+            ),
+            relation=Relation.LE,
+            right=Polynomial(terms=(Term(Rational(1, 2)),)),
+        )
+        return Claim(
+            claim_id="refutation.fixture",
+            variables=tuple(Variable(item, unit=Unit.RADIAN) for item in variable_ids),
+            domains=(BoxDomain("Q", components=axes),),
+            quantifiers=(QuantifierBlock(kind, variable_ids, "Q"),),
+            predicates=(predicate,),
+            formula=Formula.predicate("first_below_half"),
+            assumptions=(Assumption("rigid", "Rigid-body model", "model"),),
+            margins=(Margin("clearance", "distance", Relation.GE, Rational(1, 1000), Unit.METRE),),
+            uncertainty_semantics=UncertaintySemantics.NONE,
+            geometry_semantics=GeometrySemantics.EXACT,
+            provenance=(
+                ProvenanceEntry(
+                    "fixture-source",
+                    digest_json({"source": "unit-test"}),
+                    "Deterministic test source",
+                ),
+            ),
+        )
+
+    return factory
+
+
+@pytest.fixture
 def model_hash() -> ArtifactDigest:
     return digest_json({"model": "phase0-fixture"})
 
