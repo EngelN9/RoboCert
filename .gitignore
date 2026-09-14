@@ -11,6 +11,9 @@ __pycache__/
 build/
 dist/
 
+# Run output directories (`robocert certify -o run/`, falsification reports).
+run/
+
 # Lean build artifacts (formal/). lake-manifest.json IS committed -- it pins deps.
 .lake/
 
