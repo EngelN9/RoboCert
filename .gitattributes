@@ -23,3 +23,8 @@ ROOT text eol=lf
 # on Windows and Linux and break scripts/check_attestations.py on one of them. Any new
 # digest-bearing file MUST be pinned here.
 formal/attestations/statements/* text eol=lf
+
+# Simulation models whose SHA-256 is recorded as `model_sha256` in every falsification report
+# (src/robocert/simulation/mujoco_backend.py). The same reasoning applies: with CRLF on a
+# Windows checkout the same commit would report a different model digest than on Linux.
+*.xml text eol=lf

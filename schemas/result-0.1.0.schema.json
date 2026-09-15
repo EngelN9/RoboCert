@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://robocert.dev/schemas/0.2.0/result.schema.json",
+  "$id": "https://robocert.dev/schemas/0.1.0/result.schema.json",
   "title": "RoboCert Result",
   "type": "object",
   "additionalProperties": false,
@@ -10,11 +10,10 @@
     "claim_hash",
     "model_hash",
     "diagnostics",
-    "checked_certificate",
-    "counterexample"
+    "checked_certificate"
   ],
   "properties": {
-    "schema_version": { "const": "0.2.0" },
+    "schema_version": { "const": "0.1.0" },
     "status": {
       "enum": [
         "CERTIFIED_FEASIBLE",
@@ -36,12 +35,6 @@
         { "type": "null" },
         { "$ref": "#/$defs/certificate" }
       ]
-    },
-    "counterexample": {
-      "oneOf": [
-        { "type": "null" },
-        { "$ref": "#/$defs/counterexample" }
-      ]
     }
   },
   "allOf": [
@@ -60,23 +53,6 @@
       "else": {
         "properties": {
           "checked_certificate": { "type": "null" }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": { "status": { "const": "COUNTEREXAMPLE" } },
-        "required": ["status"]
-      },
-      "then": {
-        "required": ["counterexample"],
-        "properties": {
-          "counterexample": { "$ref": "#/$defs/counterexample" }
-        }
-      },
-      "else": {
-        "properties": {
-          "counterexample": { "type": "null" }
         }
       }
     },
@@ -111,52 +87,6 @@
     "digest": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$"
-    },
-    "rational": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["numerator", "denominator"],
-      "properties": {
-        "numerator": { "type": "integer" },
-        "denominator": { "type": "integer" }
-      }
-    },
-    "binding": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["variable_id", "value"],
-      "properties": {
-        "variable_id": { "type": "string", "minLength": 1 },
-        "value": { "$ref": "#/$defs/rational" }
-      }
-    },
-    "counterexample": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "claim_id",
-        "claim_hash",
-        "model_hash",
-        "assignment",
-        "assumption_ids",
-        "arithmetic_mode"
-      ],
-      "properties": {
-        "claim_id": { "type": "string", "minLength": 1 },
-        "claim_hash": { "$ref": "#/$defs/digest" },
-        "model_hash": { "$ref": "#/$defs/digest" },
-        "assignment": {
-          "type": "array",
-          "minItems": 1,
-          "items": { "$ref": "#/$defs/binding" }
-        },
-        "assumption_ids": {
-          "type": "array",
-          "uniqueItems": true,
-          "items": { "type": "string", "minLength": 1 }
-        },
-        "arithmetic_mode": { "type": "string", "minLength": 1 }
-      }
     },
     "jsonValue": {
       "oneOf": [

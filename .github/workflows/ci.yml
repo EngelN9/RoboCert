@@ -126,13 +126,13 @@ jobs:
           python-version: "3.14"
           cache: pip
       # Rocq (the renamed Coq) has no single official apt package as of this writing; opam
-      # is the community-standard, version-pinned installation method. NOTE: neither Rocq
-      # nor opam is installed on the machine that authored this job -- the exact package
-      # name/repo URL/version below is a best-effort first cut, not something re-run and
-      # confirmed here. If it has drifted by the time this job actually runs, that is a
-      # real finding to fix, not a sign the design is wrong. See
-      # formal/attestations/planar2r-exact-witness.json, which records Rocq as pending for
-      # exactly this reason.
+      # is the community-standard, version-pinned installation method. The pins below were
+      # first written on a machine with no Rocq, and CI has since confirmed them: the
+      # rocq-core 9.2.0 kernel checked formal/rocq/RoboCert/Planar2R.v in exact-head run
+      # 33356967720, the run the reviewed rocq entry in
+      # formal/attestations/planar2r-exact-witness.json was transcribed from. If a pin
+      # drifts, the --require rocq step below fails on the toolchain-string comparison. That
+      # is a real finding to fix, not a reason to relax the pin.
       - name: Install opam
         run: sudo apt-get update && sudo apt-get install -y opam
       - name: Install pinned Rocq via opam

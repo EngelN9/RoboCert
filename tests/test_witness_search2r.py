@@ -8,9 +8,11 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from robocert.witness_search2r import (
+    angle_to_t_candidate,
     joint_limits_to_t_bounds,
     solve_reachable_targets,
     t_bounds_to_joint_limits,
+    t_to_angle,
 )
 
 _L1 = Fraction(5)
@@ -118,3 +120,85 @@ def test_joint_limit_conversion_rejects_unrepresentable_intervals(
 ) -> None:
     with pytest.raises(ValueError):
         joint_limits_to_t_bounds(lower, upper)
+
+
+def test_angle_to_t_candidate_round_trips_to_float_precision() -> None:
+    for angle in (0.0, 0.339554, -0.049178, 1.4, -1.4):
+        t = angle_to_t_candidate(angle)
+        assert t_to_angle(t) == pytest.approx(angle, abs=1e-9)
+
+
+def test_angle_to_t_candidate_is_deterministic() -> None:
+    assert angle_to_t_candidate(0.339554) == angle_to_t_candidate(0.339554)
+
+
+def test_angle_to_t_candidate_respects_the_chart_boundary() -> None:
+    """The half-angle chart does not reach +-pi (P2 Theorem 12.1)."""
+
+    for angle in (math.pi, -math.pi, 4.0):
+        with pytest.raises(ValueError, match="strictly inside"):
+            angle_to_t_candidate(angle)
+
+
+def test_angle_to_t_candidate_is_monotone_like_the_true_transport() -> None:
+    """tan(q/2) is strictly increasing on (-pi, pi); the rational candidate must not
+    invert that, or a point could land on the wrong side of a joint limit."""
+
+    angles = [-1.5, -0.7, -0.1, 0.0, 0.1, 0.7, 1.5]
+    values = [angle_to_t_candidate(angle) for angle in angles]
+    assert values == sorted(values)
+
+
+def test_a_transported_interior_angle_lands_inside_the_inward_rounded_box() -> None:
+    """The ordinary case: an angle well inside the joint limits survives both
+    approximations -- the inward-rounded domain and the rounded point."""
+
+    lower, upper = joint_limits_to_t_bounds(Fraction(-3, 2), Fraction(3, 2))
+    assert lower <= angle_to_t_candidate(0.4) <= upper
+
+
+def test_a_boundary_angle_lands_exactly_on_the_box_endpoint_at_matching_denominators() -> None:
+    """At the same denominator the two approximations coincide rather than fight.
+
+    `joint_limits_to_t_bounds` rounds the DOMAIN inward from `tan(q/2)`; `angle_to_t_candidate`
+    rounds a POINT from the same value with the same `limit_denominator`. They therefore
+    produce the identical rational, and since the endpoint is closed the boundary angle is
+    inside the box. This is a coincidence of matching denominators, not a guarantee -- which
+    is exactly why nothing downstream relies on it and `refute` re-checks membership itself.
+    """
+
+    q_upper = Fraction(3, 2)
+    _, upper = joint_limits_to_t_bounds(Fraction(-3, 2), q_upper)
+    assert angle_to_t_candidate(float(q_upper)) == upper
+
+
+def test_an_angle_beyond_the_joint_limits_transports_outside_the_box() -> None:
+    """The rejection path that matters: a search sampling wider than the certified region.
+
+    `t = tan(q/2)` is strictly increasing, so an angle above the upper joint limit maps above
+    the box. A consumer re-checking domain membership rejects it, and the lead is correctly
+    lost rather than silently accepted at the wrong configuration.
+    """
+
+    _, upper = joint_limits_to_t_bounds(Fraction(-3, 2), Fraction(3, 2))
+    lower, _ = joint_limits_to_t_bounds(Fraction(-3, 2), Fraction(3, 2))
+    assert angle_to_t_candidate(1.6) > upper
+    assert angle_to_t_candidate(-1.6) < lower
+
+
+def test_a_coarser_denominator_buys_a_smaller_witness_at_a_cost_in_angle() -> None:
+    """The size/accuracy trade the caller is choosing, pinned as a checked fact.
+
+    Certificate size is an evaluation metric (README §24) and AGENTS.md §7.3 warns against
+    gratuitous coefficient growth, so the trade needs to be visible rather than folded into
+    a default nobody revisits.
+    """
+
+    angle = 0.339554
+    coarse = angle_to_t_candidate(angle, denominator=10**3)
+    fine = angle_to_t_candidate(angle, denominator=10**12)
+
+    assert coarse.denominator < fine.denominator
+    assert abs(t_to_angle(coarse) - angle) > abs(t_to_angle(fine) - angle)
+    # Coarse is still close enough to be a usable candidate, just not a precise one.
+    assert abs(t_to_angle(coarse) - angle) < 1e-3

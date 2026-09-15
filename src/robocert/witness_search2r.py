@@ -222,6 +222,54 @@ def joint_limits_to_t_bounds(
     return (lower, upper)
 
 
+def angle_to_t_candidate(q: float, *, denominator: int = 10**12) -> Fraction:
+    """Rational `t = tan(q/2)` candidate for a joint angle in radians.
+
+    For generic radian angles `tan(q/2)` is irrational, so no exact rational equals it and
+    this returns a nearby one. The returned `t` therefore denotes a slightly DIFFERENT
+    configuration from `q`; `t_to_angle` reports which one.
+
+    **This needs no rounding-direction argument, and that is worth saying explicitly because
+    its sibling `joint_limits_to_t_bounds` does.** That function builds a DOMAIN, which
+    nothing downstream re-derives, so its inward rounding is load-bearing: it is what makes
+    the certified box a subset of the requested one. A candidate POINT is different. Every
+    consumer of this function re-derives the point from scratch -- `refutation.refute`
+    re-checks domain membership and re-evaluates the whole formula, and
+    `checkers.ExactWitnessChecker` does the same for witnesses. A candidate that drifts out
+    of the domain, or that no longer violates what it was meant to violate, is rejected on
+    its own merits. Rounding direction can therefore cost a lead but cannot buy an unsound
+    acceptance, which makes it an ergonomics choice rather than a soundness one.
+
+    A consequence worth expecting: an angle very close to a joint limit may transport to a
+    `t` outside a box that `joint_limits_to_t_bounds` rounded inward. That is the two
+    approximations disagreeing at the boundary, and the honest outcome is a rejection.
+
+    **`denominator` trades witness size against angle accuracy, and the default is biased
+    toward accuracy.** At the default the returned rational typically has a twelve-digit
+    denominator, which round-trips to the sampled angle within float precision but is
+    hostile to audit -- and certificate size is a stated evaluation metric (`README` SS24),
+    with `AGENTS.md` SS7.3 warning against gratuitous coefficient growth. A caller reporting
+    a witness to a human should pass something far coarser and check the result still does
+    what it was wanted for; `solve_reachable_targets` in this module applies exactly that
+    policy, preferring the coarsest candidate that still meets its tolerance. The default
+    matches `joint_limits_to_t_bounds` so that a point and a domain built from the same
+    angle agree rather than straddling an endpoint.
+
+    Requires `-pi < q < pi`: the half-angle chart does not reach `+-pi` (P2 Theorem 12.1).
+    """
+    if not -math.pi < q < math.pi:
+        raise ValueError(
+            "angle must lie strictly inside (-pi, pi); the half-angle chart cannot "
+            "represent +-pi (see certify2r for four-chart coverage)"
+        )
+    return Fraction(math.tan(q / 2.0)).limit_denominator(denominator)
+
+
+def t_to_angle(t: Fraction) -> float:
+    """The radian angle a `t` value actually denotes: `q = 2*atan(t)`. Reporting only."""
+    return 2 * math.atan(float(t))
+
+
 def t_bounds_to_joint_limits(t_lower: Fraction, t_upper: Fraction) -> tuple[float, float]:
     """The radian interval a `t`-box actually certifies. Reporting only."""
     return (2 * math.atan(float(t_lower)), 2 * math.atan(float(t_upper)))
@@ -239,9 +287,11 @@ def witness_payload(t1: Fraction, t2: Fraction) -> dict[str, dict[str, dict[str,
 __all__ = [
     "Planar2RInstance",
     "WitnessCandidate",
+    "angle_to_t_candidate",
     "instance_from_witness",
     "joint_limits_to_t_bounds",
     "solve_reachable_targets",
     "t_bounds_to_joint_limits",
+    "t_to_angle",
     "witness_payload",
 ]

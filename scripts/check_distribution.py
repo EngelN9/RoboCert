@@ -18,6 +18,7 @@ SCHEMA_NAMES = frozenset(
         "certificate.schema.json",
         "claim.schema.json",
         "problem.schema.json",
+        "result-0.1.0.schema.json",
         "result.schema.json",
     }
 )
