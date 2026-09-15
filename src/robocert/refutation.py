@@ -147,10 +147,41 @@ def refute(claim: Claim, model_hash: ArtifactDigest, assignment: Assignment) -> 
 
     if not isinstance(assignment, Mapping):
         return _rejection(claim_hash, model_hash, ("assignment must be a mapping",))
-    if any(not isinstance(value, Rational) for value in assignment.values()):
+
+    # Read the caller's mapping exactly once, and use only that snapshot from here on. A
+    # Mapping is not obliged to return the same value twice, yet the domain check, the
+    # evaluation, and the recorded witness must all concern one and the same point. With
+    # separate lookups, a mapping could pass the checks with one value and have a different,
+    # unchecked value recorded in the CheckedCounterexample. Each value is rebuilt as a plain
+    # Rational from a single read of its fields, so no caller-supplied object is consulted
+    # again. Regression test: test_a_checked_counterexample_survives_its_own_recheck.
+    try:
+        items = list(assignment.items())
+    except Exception as exc:  # fail closed: an unreadable mapping refutes nothing
+        return _rejection(
+            claim_hash,
+            model_hash,
+            (f"assignment could not be read: {type(exc).__name__}",),
+        )
+    if any(not isinstance(key, str) for key, _ in items):
+        return _rejection(
+            claim_hash, model_hash, ("assignment keys must be variable identifier strings",)
+        )
+    if len({key for key, _ in items}) != len(items):
+        return _rejection(claim_hash, model_hash, ("assignment yields a variable more than once",))
+    if any(not isinstance(value, Rational) for _, value in items):
         return _rejection(
             claim_hash, model_hash, ("assignment values must be exact Rational values",)
         )
+    try:
+        snapshot = {key: Rational(value.numerator, value.denominator) for key, value in items}
+    except Exception as exc:  # fail closed: a value that cannot be normalized refutes nothing
+        return _rejection(
+            claim_hash,
+            model_hash,
+            (f"assignment value could not be normalized: {type(exc).__name__}",),
+        )
+    assignment = snapshot
 
     # Guard 1: a point refutes `forall` blocks only. Reject rather than filter -- a claim
     # carrying an `exists` block needs a procedure built to discharge it, not this one.

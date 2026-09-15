@@ -8,7 +8,7 @@ malformed assignment, and a point that simply does not violate the formula.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import replace
 
 import pytest
@@ -257,3 +257,72 @@ def _result_token() -> object:
     from robocert import results
 
     return results._RESULT_TOKEN
+
+
+class _ShiftingAssignment(Mapping[str, Rational]):
+    """Answers with `honest` for the first `honest_reads` lookups, then with `later`.
+
+    A caller-supplied Mapping is not required to return the same value twice. A gate that
+    looks a value up once to check it and again to evaluate or record it can therefore
+    certify a point it never checked.
+    """
+
+    def __init__(self, honest: Rational, later: Rational, honest_reads: int) -> None:
+        self._honest = honest
+        self._later = later
+        self._remaining = honest_reads
+
+    def __getitem__(self, key: str) -> Rational:
+        if key != "q":
+            raise KeyError(key)
+        if self._remaining > 0:
+            self._remaining -= 1
+            return self._honest
+        return self._later
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(("q",))
+
+    def __len__(self) -> int:
+        return 1
+
+
+@pytest.mark.parametrize(
+    ("honest", "later", "honest_reads"),
+    [
+        # Checked at 3/4 (in the domain, violating), recorded as 5 (outside the domain).
+        (Rational(3, 4), Rational(5), 3),
+        # Domain-checked at 0 (satisfying), evaluated and recorded at 5.
+        (Rational(0), Rational(5), 2),
+        # Type-checked at 0, then consistently 3/4 afterwards.
+        (Rational(0), Rational(3, 4), 1),
+    ],
+)
+def test_a_checked_counterexample_survives_its_own_recheck(
+    honest: Rational,
+    later: Rational,
+    honest_reads: int,
+    make_universal_claim: Callable[..., Claim],
+) -> None:
+    """The gate's defining invariant: whatever it records must itself refute the claim.
+
+    Re-running `refute` on the recorded assignment, as a plain dict, must accept. A gate that
+    reads the caller's mapping more than once can break this even though every individual
+    check it performs is correct.
+    """
+
+    claim = make_universal_claim()
+    report = refute(claim, MODEL_HASH, _ShiftingAssignment(honest, later, honest_reads))
+    if not report.accepted:
+        return
+    counterexample = report.checked_counterexample
+    assert counterexample is not None
+    assert refute(claim, MODEL_HASH, dict(counterexample.assignment)).accepted
+
+
+def test_unrelated_keys_of_mixed_types_are_rejected_not_raised(
+    make_universal_claim: Callable[..., Claim],
+) -> None:
+    assignment = {"q": Rational(3, 4), 7: Rational(1), "extra": Rational(1)}
+    report = refute(make_universal_claim(), MODEL_HASH, assignment)  # type: ignore[arg-type]
+    assert not report.accepted

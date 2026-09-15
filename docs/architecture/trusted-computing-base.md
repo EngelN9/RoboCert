@@ -45,8 +45,13 @@ rule does not discharge implementation correctness: domain handling, exact evalu
 artifact binding, and the promotion factory are part of the runtime TCB and require review.
 That correspondence is ledgered as `research/CLAIMS.md` RC-007, at `E0` with no written
 argument, on the precedent RC-006 sets for `sos.py`. The path to `COUNTEREXAMPLE` is
-therefore open while its implementation claim is unreviewed; whether it should stay open
-until RC-007 advances is an owner decision, not settled here.
+therefore open while its implementation claim is unreviewed. The owner's decision
+(2026-09-15): `refute` stays available as a library API, and is not wired into the CLI or
+any report until RC-007 has an owner read (`E1`). That caution is not hypothetical: on
+2026-09-15 a close reading found that `refute` looked values up in the caller's mapping
+separately for each check, so a mapping returning different values could have an unchecked
+point recorded as a counterexample. It now reads the mapping once and checks a single
+snapshot (RC-007 history).
 
 What `refute` establishes is `not (forall q in Q: Phi(q))` **for the claim exactly as
 serialized**. Whether that claim faithfully models the engineering question is, as everywhere

@@ -211,10 +211,11 @@ statement: On the principal tangent-half-angle chart, the polynomial formula
   consisting of the exact pose-tolerance inequality
   `tau^2 D1^2 D2^2 - Fx^2 - Fy^2 >= 0`, exact singularity polynomial, and two
   homogeneous point-to-segment case splits whose endpoints are the actual
-  rationalized points `p0`, `p1(t)`, and `p2(t)`, is pointwise equivalent to
-  pose tolerance, both actual-link clearances, and the Jacobian determinant
-  margin; restricting both sides to the same exact rational closed t-box
-  preserves bounded existential equivalence.
+  rationalized points `p0`, `p1(t)`, and `p2(t)`, is pointwise equivalent, for
+  every `t = (t1, t2)` in R^2, to pose tolerance, both actual-link clearances,
+  and the Jacobian determinant margin; restricting both sides to the same exact
+  rational closed t-box, with `t` ranging over its real points, preserves
+  bounded existential equivalence.
 tier: E0
 depends: [RC-002]
 proof: research/proofs/planar-2r-pose-tolerance-witness-proof-rc005.md
@@ -238,10 +239,12 @@ fidelity: Recorded 2026-09-11 by reading the declarations against this entry and
   three-branch analysis and all implementation correspondence. (b) The Isabelle transport
   binds `t1 t2 : rat`, while the proof applies the existential to the real box
   (Section 7) and `formal/RoboCert/Semantics.lean` reads this entry's bounded existential
-  as ranging over R. (c) This entry's `statement:` does not itself say whether `t`
-  ranges over R or Q. That omission is a statement-level gap (AGENTS.md sections 1 and 59
-  make the quantifier prefix, and each quantifier's domain, part of the theorem) for the
-  owner to settle.
+  as ranging over R. (c) Resolved 2026-09-15: `statement:` now fixes `t` in R^2 for both
+  the pointwise equivalence and the bounded existential, matching the proof. A checker
+  exhibiting a rational witness still establishes the real existential, since a rational
+  point of the box is a real one. With the domain fixed, (a) and (b) are confirmed
+  divergences: the Rocq and Isabelle declarations are the Q-instances of steps this entry
+  states over R, and neither yet mechanizes the statement as written.
   Nothing here is changed by recording it. Lean does not mechanize this entry; its
   Semantics.lean mentions RC-005 only to exclude it from the Q semantics.
 history:
@@ -274,6 +277,13 @@ history:
     the box, a regression fixture for "search failure must return UNKNOWN";
     (e) `tau >= 0` and `a_i <= b_i` are inert, while `R >= 0`, `eps >= 0` and
     non-vanishing `L1, L2` are load-bearing and tight.
+  - 2026-09-15 statement clarified, no tier change: `t` ranges over R^2 for both the
+    pointwise equivalence and the bounded existential. The earlier wording left the domain
+    unstated, which AGENTS.md sections 1 and 59 do not permit. R was chosen because the
+    proof argues over R (equation 7.1, "for every finite real (t1,t2)") and the geometric
+    claim concerns real configurations. The quantifier order is unchanged, so this narrows
+    an ambiguity rather than changing the claim. The project owner delegated the choice to
+    the recommendation that proposed R.
 
 ## RC-006
 
@@ -344,3 +354,20 @@ history:
     nowhere, while `refute` sits on a live path to a result status. Whether that path
     should stay open while this entry is E0 is the owner's decision; this entry does not
     make it.
+  - 2026-09-15 defect found and repaired, no tier change. Reading the code against
+    guards (ii)-(iv), in preparation for a written argument, found that `refute` looked
+    values up in the caller's Mapping separately for the type check, the domain check,
+    evaluation, and recording. A Mapping is not obliged to return the same value twice, so
+    one could pass the checks at q = 3/4 and have q = 5, outside the domain, recorded in an
+    accepted CheckedCounterexample. Planted non-idempotent mappings reproduced this on the
+    unrepaired code. Separately, unrelated keys of mixed types raised TypeError instead of
+    being rejected. Repair: the mapping is read once, keys must be distinct strings, and
+    each value is rebuilt as a plain Rational from a single read; every later step uses only
+    that snapshot. Regression tests:
+    tests/test_refutation.py::test_a_checked_counterexample_survives_its_own_recheck (the
+    invariant that a recorded witness must itself refute the claim) and
+    ::test_unrelated_keys_of_mixed_types_are_rejected_not_raised. Each guard was correct in
+    isolation. The defect was that they did not concern the same point, which is exactly the
+    kind of gap only a correspondence argument, not the logic, can expose. Still no written
+    argument, so still E0. Gating, delegated by the owner: the library API stays, and `refute`
+    is not to be wired into the CLI or any report until this entry has an owner read (E1).
