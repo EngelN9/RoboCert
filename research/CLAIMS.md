@@ -334,12 +334,12 @@ statement: `src/robocert/refutation.py::refute` returns an accepted `RefutationR
   R, since a rational point of the box is a real point of it.
 tier: E0
 depends: []
-proof: none yet. The logic being appealed to is elementary -- one point of the domain at
-  which the formula is false refutes a purely universal claim -- but what this entry asserts
-  is IMPLEMENTATION CORRESPONDENCE, exactly as RC-006 does for `sos.py`: that the shipped code
-  decides (i)-(iv) and nothing weaker. No written argument exists. Guard (iv) delegates to
-  `checkers.evaluate_formula`, the evaluator `ExactWitnessChecker` also uses, and that
-  evaluator's own correspondence is likewise unargued. Covered so far only by
+proof: research/proofs/rc007-refutation-correspondence.md (E0 draft; includes the
+  correspondence argument for `checkers.evaluate_formula`, which guard (iv) delegates to).
+  The elementary logical step is that one in-domain point where the formula is false refutes
+  a purely universal claim. The implementation-correspondence argument that the shipped code
+  decides (i)-(iv) and nothing weaker still requires the project-owner E1 read and fresh
+  referee protocol. Tests are supporting implementation evidence, not that review:
   tests/test_refutation.py, tests/test_simulation.py, tests/test_schemas.py
 target_checker: none. `refute` is not a `checking.Checker` and binds no certificate family;
   it gates the `COUNTEREXAMPLE` status via `results.counterexample_result`
@@ -371,3 +371,9 @@ history:
     kind of gap only a correspondence argument, not the logic, can expose. Still no written
     argument, so still E0. Gating, delegated by the owner: the library API stays, and `refute`
     is not to be wired into the CLI or any report until this entry has an owner read (E1).
+  - 2026-09-15 note: the E0 implementation-correspondence argument was written at
+    research/proofs/rc007-refutation-correspondence.md against the repaired code. It includes
+    the exact polynomial/predicate/Boolean evaluator rather than assuming guard (iv), records
+    that the supplied model digest is a binding rather than a correspondence proof, and keeps
+    assumptions explicit. No owner read or independent referee review has occurred; tier stays
+    E0 and the CLI/report gate remains closed.

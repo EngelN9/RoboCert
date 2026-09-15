@@ -57,9 +57,10 @@ emitted `COUNTEREXAMPLE`, so no published result was affected.
   record format, so each needs a fresh exact-head kernel run and reviewed transcription
   (`formal/AGENTS.md` rule 7). All three belong to the formal layer, which is PR #2's scope.
   Do them after PR #2 merges, as a single re-attestation cycle, not piecemeal.
-- **The RC-007 correspondence argument.** It is the next document to write, and it should
-  be written against the repaired code. It enters as E0 and must be refereed by fresh
-  contexts, never by the context that wrote it.
+- **The RC-007 correspondence argument.** The E0 draft now exists at
+  `research/proofs/rc007-refutation-correspondence.md` against the repaired code. It still
+  needs the owner's line-by-line E1 read and, after that, fresh referee contexts that never
+  saw its construction. `refute` remains excluded from the CLI and generated reports.
 
 ### Still only the owner can do
 
