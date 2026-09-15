@@ -1,9 +1,75 @@
-# RoboCert continuity handoff — 2026-09-07, updated 2026-09-11 and 2026-09-14
+# RoboCert continuity handoff — 2026-09-07, updated 2026-09-11, 2026-09-14 and 2026-09-15
 
 This file preserves the project context needed after the original repository-setup
 session is deleted. It is a progress and continuation record, not a mathematical
 review, proof, attestation, or release approval. The maintainer requested English
 for subsequent communication on 2026-09-07.
+
+## September 15 update — work committed on its own branch, refutation defect repaired
+
+This section supersedes the September 14 list "Owner decisions now blocking progress",
+items 1, 3 and 4, which are now decided. Items 2 and 5 still stand. No tier changed, no
+attestation was edited, and no checker was registered.
+
+### Where the work is
+
+- The formerly uncommitted working tree is committed on branch `refutation-and-simulation`,
+  cut from `fbc9867`, and opened as a separate draft pull request **stacked on**
+  `phase-0.5-formal-layer`, so its diff shows only this work and it cannot merge ahead of
+  PR #2. It was deliberately **not** committed onto `phase-0.5-formal-layer` itself: PR #2's
+  description states that the simulation, refutation and research-ledger changes are not
+  part of it. PR #2 was not touched. Merge PR #2 first; GitHub then retargets the stacked
+  PR to `main` if the `phase-0.5-formal-layer` branch is deleted on merge, and otherwise
+  change its base to `main` by hand.
+- Each intermediate commit was tested in an isolated worktree. All non-Lean tests passed at
+  every commit. Ten Lean-conformance tests failed at each, and the same ten fail at
+  `fbc9867`, which is CI-green, in a fresh worktree. A new worktree has no `formal/.lake`
+  build cache and the generated Lean file does not elaborate there. That is an environment
+  effect, not a defect in any commit.
+
+### Defect found and repaired in `refute`
+
+Reading `refute` against RC-007's guards found that it looked values up in the caller's
+Mapping separately for the type check, domain check, evaluation, and recording. A mapping
+returning different values on different reads could therefore pass the checks at one point
+and have another, unchecked point recorded in an accepted `CheckedCounterexample`. It was
+reproduced on the unrepaired code with q = 5, outside the domain, recorded. Unrelated
+keys of mixed types also raised instead of being rejected. `refute` now reads the mapping once,
+requires distinct string keys, rebuilds each value as a plain `Rational`, and uses only that
+snapshot. Regression tests pin the invariant that a recorded witness must itself pass
+`refute`. Full suite: **427 passed**. Details are in RC-007's history. No public entry point
+emitted `COUNTEREXAMPLE`, so no published result was affected.
+
+### Decisions made on the owner's delegation
+
+- **RC-005 domain:** `t` ranges over R^2, matching the proof. The statement was clarified
+  with a history line, and the Q-versus-R items in its `fidelity:` field are now confirmed
+  divergences rather than ambiguities.
+- **`COUNTEREXAMPLE` gating:** `refute` stays a library API. It is not wired into the CLI
+  or any report until RC-007 has an owner read (E1).
+- **Line endings:** `*.xml` is pinned to LF in `.gitattributes`, so the example model's
+  recorded `model_sha256` is the same on Windows and Linux checkouts.
+
+### Deliberately deferred, and why
+
+- **Binding Lean attestations to their import closure (Sept 14 item 2),** restating the
+  Isabelle transport over `real`, and a Rocq lockfile. Each changes a pinned digest or the
+  record format, so each needs a fresh exact-head kernel run and reviewed transcription
+  (`formal/AGENTS.md` rule 7). All three belong to the formal layer, which is PR #2's scope.
+  Do them after PR #2 merges, as a single re-attestation cycle, not piecemeal.
+- **The RC-007 correspondence argument.** It is the next document to write, and it should
+  be written against the repaired code. It enters as E0 and must be refereed by fresh
+  contexts, never by the context that wrote it.
+
+### Still only the owner can do
+
+1. Read the RC-002 corrigendum, then RUN002 with fresh packets and the `referee` skill, then
+   RC-002 at E2. In the meantime, the line-by-line read of RC-005 can take it to E1. RC-005
+   depends on RC-002, so its own `referee` run only counts once RC-002 is at E2.
+2. Find one adversarial human reviewer. TCB obligation 8 requires one before any production
+   checker registration, and no agent can meet it.
+3. Fix the `.pytest-basetemp` ACL from an elevated prompt. The command is in the
+   September 14 session record; until then use a fresh `--basetemp`.
 
 ## September 14 update — attestations complete, one binding gap found
 
