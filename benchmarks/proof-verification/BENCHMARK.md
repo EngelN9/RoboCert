@@ -968,6 +968,17 @@ prompts/
 
 Once an evaluation begins, prompts MUST NOT be silently modified.
 
+The *preparation tool* is frozen on the same terms. `scripts/prepare_rc002_run.py` pins
+`BENCHMARK_VERSION` and checks it against `VERSION`, so changing how a run is assembled is a
+freezing question and not a refactor: RUN001 was prepared at `0.2.0`, and a run prepared under
+different semantics is not comparable to it without a disclosed deviation.
+
+As written the tool can only prepare a **two**-source run. It hardcodes the two source proofs,
+`_load_or_create_private_map` requires the blind-label set to be exactly `{"P1", "P2"}`, and the
+label assignment is a two-way coin flip. A repaired RC-002 package carrying
+`research/proofs/rc002-frozen-task-corrigendum-2026-08-24.md` therefore cannot be frozen with it
+until that decision is made and the tool follows — see the script's own module docstring.
+
 ---
 
 # 25. Recommended generation prompt
@@ -1136,7 +1147,7 @@ RCMPVB-20260817-GPT56SOL-G-RUN001
 ```json
 {
   "benchmark": "RC-MPVB",
-  "benchmark_version": "0.1.0",
+  "benchmark_version": "0.2.0",
   "item_id": "RC-002",
   "model": "",
   "model_version": "",

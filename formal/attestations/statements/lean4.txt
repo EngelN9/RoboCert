@@ -1,0 +1,3 @@
+theorem exactWitness_sound (c : Claim) (cert : Certificate)
+    (hwf : c.FormulaVarsQuantified)
+    (h : ExactWitnessChecker.check c cert = true) : c.Semantics

@@ -1,0 +1,15 @@
+name = "robocert"
+defaultTargets = ["RoboCert"]
+
+# No dependencies. Phase 0.5a is rational arithmetic and structural induction only;
+# mathlib is deliberately NOT pinned here (see formal/README.md). Adding any dependency
+# is a reviewed change: it lands in lake-manifest.json and must be declared under
+# docs/architecture/trusted-computing-base.md's "trusted to prove" table.
+
+[[lean_lib]]
+name = "RoboCert"
+
+# Quarantine for statement-only formalizations where `sorry` is permitted.
+# Never imported by the RoboCert library; not covered by the axiom audit.
+[[lean_lib]]
+name = "Statements"

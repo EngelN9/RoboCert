@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from fractions import Fraction
 
+from robocert.attestation import AttestationPolicy, AttestedChecker
 from robocert.certificates import Certificate, CertificateConclusion
 from robocert.checking import CheckerDecision
 from robocert.errors import ValidationError
@@ -157,6 +158,36 @@ planar2r_exact_witness_checker = ExactWitnessChecker(
     certificate_family=PLANAR2R_EXACT_WITNESS_FAMILY,
 )
 
+# Attestation policy for the planar-2R exact-witness family.
+#
+# This is DATA, not logic: `robocert.attestation` names no proof assistant and does not
+# branch on `system`. Adding or removing an assistant is an edit to this table alone.
+#
+# Each allow-list is the set of axioms that assistant's kernel may legitimately report for a
+# complete proof. A placeholder axiom for an unfinished proof -- Lean's `sorryAx`, Rocq's
+# admitted-proof axiom, Isabelle's `sorry` -- is absent from every list by construction, so an
+# incomplete proof cannot attest.
+PLANAR2R_ATTESTATION_POLICY = AttestationPolicy(
+    required_systems=("lean4", "rocq", "isabelle"),
+    allowed_axioms={
+        "lean4": frozenset({"propext", "Classical.choice", "Quot.sound"}),
+        "rocq": frozenset({"functional_extensionality", "proof_irrelevance"}),
+        "isabelle": frozenset(),
+    },
+)
+
+# Research artifact only. Like `planar2r_exact_witness_checker` above, this is NOT registered
+# for production: RC-002 is E1 and RC-005 is E0, and registration additionally requires the
+# obligations in docs/architecture/trusted-computing-base.md. Tests install it explicitly.
+#
+# The wrapper can only ever narrow the inner checker's verdict; see
+# `robocert.attestation.AttestedChecker`.
+planar2r_attested_witness_checker = AttestedChecker(
+    planar2r_exact_witness_checker,
+    PLANAR2R_ATTESTATION_POLICY,
+    id_suffix=".attested",
+)
+
 # evaluate_formula / evaluate_predicate / evaluate_polynomial are deliberately
 # NOT exported. A sub-formula of a claim generally carries no meaning on its own:
 # for the planar-2R family, proof P2 Proposition 9.4(3) and Remark 9.5 show the
@@ -168,7 +199,9 @@ planar2r_exact_witness_checker = ExactWitnessChecker(
 # They remain importable by name for tests; keeping them out of __all__ marks
 # them as internal rather than part of the supported surface.
 __all__ = [
+    "PLANAR2R_ATTESTATION_POLICY",
     "PLANAR2R_EXACT_WITNESS_FAMILY",
     "ExactWitnessChecker",
+    "planar2r_attested_witness_checker",
     "planar2r_exact_witness_checker",
 ]

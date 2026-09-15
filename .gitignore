@@ -10,3 +10,23 @@ __pycache__/
 .package-smoke/
 build/
 dist/
+
+# Lean build artifacts (formal/). lake-manifest.json IS committed -- it pins deps.
+.lake/
+
+# Rocq build artifacts (formal/rocq/).
+*.vo
+*.vok
+*.vos
+*.glob
+.coq-native/
+.CoqMakefile*
+
+# Isabelle build artifacts and heap output (formal/isabelle/).
+.isabelle/
+
+# Kernel-run provenance from `check_attestations.py --emit-evidence`. Produced per run, on the
+# machine that has the toolchain; CI uploads it as a build artifact. It is deliberately NOT
+# committed -- a checked-in copy would be a stale claim about a run that is over, which is the
+# distinction formal/AGENTS.md rule 7 exists to keep.
+evidence/

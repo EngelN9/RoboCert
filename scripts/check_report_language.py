@@ -50,6 +50,15 @@ OVERCLAIM_PHRASES = [
     "we have proved",
     "we have shown",
     "this proves",
+    # Mechanization-specific overclaiming. A Lean proof is about a MODEL of a checker,
+    # never about the Python that runs, and never about a physical machine. See
+    # docs/architecture/trusted-computing-base.md, "The unproved bridge".
+    "formally verified",
+    "machine-checked safety",
+    "lean proves the robot",
+    "kernel-verified safety",
+    "proven correct by lean",
+    "mechanically verified safe",
 ]
 
 QUALIFIER_HINT_RE = re.compile(

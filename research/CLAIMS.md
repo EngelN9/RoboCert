@@ -203,3 +203,63 @@ history:
     existential semantics, and explicit implementation-correspondence
     obligations. Awaiting project-owner line-by-line read before E1; no
     production implementation or registration is authorized at E0.
+  - 2026-08-28 note: three mutually isolated `adversary` subagents, each given a
+    claim-only packet and denied every proof/ledger/benchmark path, searched for
+    a counterexample to the pointwise and bounded-existential equivalences. None
+    was found. Tier stays E0 -- an adversary finding nothing is a coverage
+    statement, not evidence of soundness, and cannot substitute for the owner
+    read or the referee protocol. Log:
+    research/notes/2026-08-28-rc005-adversary-search.md. Substantive results:
+    (a) the two scalar conjuncts reduce to exact rational-function identities
+    `T == D^2(tau^2 - ||p2-P*||^2)` and `G == D_2^2(detJ^2 - eps^2)` with
+    nowhere-vanishing denominators, so they hold for all REAL t, not only
+    rational -- no irrational counterexample to them exists; (b) all three agents
+    independently found that the generic `Seg` construct is UNSOUND at `Q_ = 0`
+    (branch III fires vacuously and reports clearance for a centre inside the
+    disc), reachable only by violating `L1, L2 != 0` -- RC-005 is safe as stated,
+    but the `Q_ > 0` side condition belongs on `Seg` itself before any reuse for
+    prismatic joints, uncertain link lengths, or swept segments; (c) with
+    `eps > 0` the chart's unreachable set is exactly the circle `q1 = pi`, no
+    chart-offset parameter exists, and an exact instance is recorded where the
+    physical problem is feasible while both sides of the bounded claim are false;
+    (d) an exact `Q(sqrt 7)` instance is satisfiable with no rational witness in
+    the box, a regression fixture for "search failure must return UNKNOWN";
+    (e) `tau >= 0` and `a_i <= b_i` are inert, while `R >= 0`, `eps >= 0` and
+    non-vanishing `L1, L2` are load-bearing and tight.
+
+## RC-006
+
+statement: `src/robocert/sos.py::verify` accepts a Positivstellensatz certificate
+  `(target, gamma, {g_i}, {h_j}, {sigma_k}, {lambda_j})` only when every Gram matrix is exactly
+  positive semidefinite over Q and the identity
+  `target - gamma = sigma_0 + sum_i sigma_i g_i + sum_j lambda_j h_j` holds exactly as
+  polynomials; consequently an accepted certificate establishes `target >= gamma` on
+  `K = {x : g_i(x) >= 0, h_j(x) = 0}`.
+tier: E0
+depends: []
+proof: none yet -- the Positivstellensatz SUFFICIENCY direction being appealed to is elementary
+  (at a point of K every g_i is nonnegative, every h_j vanishes, and every sigma is a sum of
+  squares, so the right-hand side is nonnegative), but the claim asserted here is
+  IMPLEMENTATION CORRESPONDENCE: that the shipped code decides exactly that condition. That is
+  what needs a written argument, and none exists. Covered so far only by
+  tests/test_sos.py, tests/test_linalg_exact.py, tests/test_polynomial.py
+target_checker: not registered and not a `checking.Checker`. `src/robocert/sos.py` is a
+  verification utility bound to no certificate family; binding one is a separate,
+  evidence-gated change
+referee: none
+history:
+  - 2026-08-31 created E0 alongside the exact-algebra core
+    (`src/robocert/polynomial.py`, `src/robocert/linalg_exact.py`, `src/robocert/sos.py`). The
+    module is deliberately NOT a `Checker`: that protocol requires a `certificate_family`, and
+    RC-001 -- which claims the SOS scheme suits the planar-2R singularity-margin reduction -- is
+    E0, so there is no family it may legally bind to. What this entry claims is narrower than
+    RC-001 and independent of it: not that SOS is the right scheme for any robot question, only
+    that this code decides the stated algebraic condition.
+  - 2026-08-31 note: two soundness-relevant decisions are load-bearing and were chosen to fail
+    closed rather than to be permissive. (a) The exact PSD test refuses a zero diagonal entry
+    whose row does not vanish; a naive LDL^T that skips zero pivots accepts `[[0,1],[1,0]]`,
+    which is indefinite, and would let a caller certify `x*y` as a sum of squares. (b) A
+    certificate carrying no SOS block is rejected rather than reducing the identity to a
+    statement about equality multipliers alone, which would say nothing about nonnegativity.
+    Both have dedicated tests. Neither is established by those tests -- a passing test is not a
+    proof, and this entry stays E0 until the correspondence argument is written and read.

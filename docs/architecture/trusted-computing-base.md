@@ -4,7 +4,7 @@ This document records the initial trusted-computing-base (TCB) boundary. It is a
 design declaration, not an external validation or formal proof of the
 implementation.
 
-## Trusted for Phase 0 artifact identity
+## Trusted to RUN — Phase 0 artifact identity
 
 The following components determine the meaning or identity of a Phase 0 artifact:
 
@@ -21,6 +21,87 @@ The JSON Schema validator used in development tests is not the sole enforcement
 mechanism. Runtime constructors independently reject malformed data so package
 soundness does not depend on applications remembering to run JSON Schema first.
 
+## Trusted to PROVE
+
+A separate and much weaker kind of trust. These components determine whether a *soundness
+argument* is valid. They never execute during certification and cannot affect any result.
+
+| Component | Role | Failure consequence |
+| --- | --- | --- |
+| Lean 4 kernel and pinned toolchain (`formal/lean-toolchain`) | Accepts the checker-model soundness proof in `formal/RoboCert/` | A soundness argument believed kernel-checked may be invalid. **No runtime behaviour changes.** |
+| Rocq kernel and pinned toolchain (`formal/rocq/`) | Accepts the exact polynomial identities in `formal/rocq/RoboCert/Planar2R.v` | Same as above, for a different (algebra-focused) soundness argument. **No runtime behaviour changes.** |
+| Isabelle/HOL kernel and pinned release (`formal/isabelle/`) | Accepts the bounded-existential/quantifier-transport statements in `formal/isabelle/RoboCert/Planar2R.thy` | Same as above, for a different (quantifier-focused) soundness argument. **No runtime behaviour changes.** |
+
+Explicitly **not** implied by those rows:
+
+- None of the three is in the run-time TCB above, and none executes during `certify` or
+  `check`.
+- None appears in `pyproject.toml`'s `dependencies`, which remains empty. The wheel does not
+  contain `formal/`.
+- None is required to reproduce a result. The `AGENTS.md` §34 reproducibility base stays
+  `model + claim + assumptions + certificate + checker`; a user needs no proof-assistant
+  install.
+- A proof from any of the three does **not**, by itself, discharge any of the seven
+  obligations in "Future certificate-family obligation" below, authorize a production
+  checker registration, or permit a `CERTIFIED_*` result.
+
+### The attestation gate — a bounded exception to "cannot affect any result"
+
+`src/robocert/attestation.py` is the one place a proof-assistant result reaches as far as a
+`CheckerDecision`, and it is deliberately narrow: `AttestedChecker.check` computes
+`inner.accepted and not violations`. An attestation can only **veto** an acceptance the
+Python checker already reached on its own; it can never manufacture one. There is no branch
+in that computation where a passing attestation makes the result more accepting than the
+inner checker's verdict alone. This is why the row above still says "cannot affect any
+result" in the *positive* direction while the gate exists in the *negative* one: the
+attestation mechanism can turn an accept into `UNKNOWN`, never the reverse.
+
+An attestation is a JSON record inside `Certificate.payload["attestations"]`
+(`ATTESTATION_KEY`), naming an opaque `system` string, bound by exact-match to the
+certificate's `claim_hash`, `model_hash`, `checker_id`, and `checker_version`, carrying a
+`kernel_accepted` boolean and an `axioms` list checked against a policy-supplied allow-list.
+`robocert.attestation` names no proof assistant; the set of required systems and each one's
+permitted axioms is policy data supplied by the checker that wraps itself in
+`AttestedChecker` (see `PLANAR2R_ATTESTATION_POLICY` in `src/robocert/checkers.py`).
+
+**Missing, corrupted, mismatched, or failed proof checking rejects — it is never treated as
+`CERTIFIED_*`.** A required system with no usable entry is "unavailable proof checking" in
+exactly the sense the requirement demanded, and it vetoes identically to a kernel that ran
+and reported failure. `tests/test_attestation.py` covers all five categories (valid,
+corrupted, mismatched, failed, unavailable) plus a Hypothesis property test asserting the
+tightening property holds for arbitrary attestation payloads, not merely the cases enumerated
+by hand.
+
+### What validating an attestation does NOT do
+
+Validating an attestation checks that a well-formed, hash-bound record *claims* a kernel
+accepted a statement. **It does not run a kernel.** Re-running the kernel and confirming the
+claim is `scripts/check_attestations.py`'s job, which runs in CI where the toolchains are
+installed (the `formal`, `rocq`, and `isabelle` jobs in `.github/workflows/ci.yml`). Absent
+that re-run, an attestation is **provenance, not proof** — evidence that some kernel accepted
+a statement with a given digest at some point, not a live guarantee.
+
+### The unproved bridges
+
+`formal/RoboCert/Checker.lean`, `formal/rocq/RoboCert/Planar2R.v`, and
+`formal/isabelle/RoboCert/Planar2R.thy` are each a **model** of some part of
+`src/robocert/`. The kernels prove properties of those models. The thing that actually runs
+is the Python.
+
+Nothing in `formal/` proves that a model and the Python it models agree. The current finite
+bridge is `scripts/check_lean_conformance.py`: 18 shared claim/certificate vectors must produce
+the same verdict in the Lean checker model and the shipped Python checker. This is differential
+evidence, not equivalence, and says nothing about untested inputs or deliberately unmodelled
+payload parsing, metadata/hash checks, and attestation handling. A reader who forgets this will
+overstate what the layer buys.
+The same applies to `Claim.FormulaVarsQuantified` in `formal/RoboCert/Wellformed.lean`, which
+is asserted to follow from Python's claim validation rather than derived from it, and to the
+Rocq/Isabelle files, which state supporting algebraic and quantifier facts about the RC-005
+proposal rather than a soundness theorem for a registered checker.
+
+Adding any dependency to any of the three toolchains (mathlib included) is a reviewed change
+that must extend the "Trusted to PROVE" table, satisfying obligation 3 below.
+
 ## Not trusted for certification
 
 The following may propose evidence but can never directly emit a certified result:
@@ -31,7 +112,31 @@ The following may propose evidence but can never directly emit a certified resul
 - orchestration agents or LLM output;
 - reporting and visualization layers;
 - third-party code implementing the `Checker` protocol but not registered by the
-  RoboCert package.
+  RoboCert package;
+- **every external mathematical or robotics system**, named explicitly so the boundary is not a
+  matter of interpretation: Drake and C-IRIS, SymPy, SageMath, Julia with SumOfSquares.jl and
+  JuMP, Risa/Asir, CoCoA, Singular, dReal and iSAT. Each may propose a candidate certificate.
+  None is a dependency of this package, none executes during `check`, and none can raise a
+  result above `UNKNOWN` by succeeding. A solver reporting "solved" contributes exactly one
+  thing: an artifact for a RoboCert checker to re-derive exactly. See
+  `docs/architecture/backends.md`.
+
+Two of those deserve a specific note, because their output is easy to mistake for a proof.
+**dReal's δ-satisfiability is not satisfiability** — it concerns a δ-perturbed problem, so it maps
+to `UNKNOWN`; only an exact rational counterexample, re-evaluated here, yields `COUNTEREXAMPLE`.
+**Quantifier-elimination output is not independently checkable** without redoing the elimination,
+so QE backends stay experimental and cannot support a `CERTIFIED_*` family.
+
+### Exact-algebra utilities (not trusted, not registered)
+
+`src/robocert/polynomial.py`, `src/robocert/linalg_exact.py`, and `src/robocert/sos.py` provide
+exact rational polynomial arithmetic, an exact PSD decision, and Positivstellensatz certificate
+verification. They add no dependency — `dependencies` remains empty.
+
+`sos.py` is **not** a `Checker` and is registered nowhere. It verifies an algebraic identity plus
+a PSD condition, which is Positivstellensatz *sufficiency* and elementary. It is not RC-001,
+which claims the SOS scheme suits the planar-2R singularity-margin reduction and is `E0`. Binding
+this verifier to a certificate family is a separate change subject to the obligations below.
 
 Phase 0 deliberately registers no production checker. Test code temporarily
 installs either a deterministic fixture checker or the quarantined RC-002
