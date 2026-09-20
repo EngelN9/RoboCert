@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from decimal import Decimal, localcontext
 from fractions import Fraction
 
 import pytest
@@ -157,19 +158,16 @@ def test_a_transported_interior_angle_lands_inside_the_inward_rounded_box() -> N
     assert lower <= angle_to_t_candidate(0.4) <= upper
 
 
-def test_a_boundary_angle_lands_exactly_on_the_box_endpoint_at_matching_denominators() -> None:
-    """At the same denominator the two approximations coincide rather than fight.
+def test_a_boundary_candidate_may_be_excluded_by_inward_rounding() -> None:
+    """A conservative domain may reject a point at the requested boundary.
 
-    `joint_limits_to_t_bounds` rounds the DOMAIN inward from `tan(q/2)`; `angle_to_t_candidate`
-    rounds a POINT from the same value with the same `limit_denominator`. They therefore
-    produce the identical rational, and since the endpoint is closed the boundary angle is
-    inside the box. This is a coincidence of matching denominators, not a guarantee -- which
-    is exactly why nothing downstream relies on it and `refute` re-checks membership itself.
+    Candidate conversion is approximate and independently rechecked; it has no right to
+    weaken the domain's load-bearing inward direction merely to keep a boundary candidate.
     """
 
     q_upper = Fraction(3, 2)
     _, upper = joint_limits_to_t_bounds(Fraction(-3, 2), q_upper)
-    assert angle_to_t_candidate(float(q_upper)) == upper
+    assert upper <= angle_to_t_candidate(float(q_upper))
 
 
 def test_an_angle_beyond_the_joint_limits_transports_outside_the_box() -> None:
@@ -202,3 +200,47 @@ def test_a_coarser_denominator_buys_a_smaller_witness_at_a_cost_in_angle() -> No
     assert abs(t_to_angle(coarse) - angle) > abs(t_to_angle(fine) - angle)
     # Coarse is still close enough to be a usable candidate, just not a precise one.
     assert abs(t_to_angle(coarse) - angle) < 1e-3
+
+
+def _decimal_tan_half(value: Fraction) -> Decimal:
+    """Independent high-precision diagnostic oracle for the regression below."""
+
+    with localcontext() as context:
+        context.prec = 100
+        x = (Decimal(value.numerator) / Decimal(value.denominator)) / 2
+        x_squared = x * x
+        sine = sine_term = x
+        cosine = cosine_term = Decimal(1)
+        index = 1
+        while True:
+            sine_term *= -x_squared / Decimal((2 * index) * (2 * index + 1))
+            cosine_term *= -x_squared / Decimal((2 * index - 1) * (2 * index))
+            next_sine = sine + sine_term
+            next_cosine = cosine + cosine_term
+            if next_sine == sine and next_cosine == cosine:
+                return +(sine / cosine)
+            sine, cosine = next_sine, next_cosine
+            index += 1
+
+
+def _decimal_fraction(value: Fraction) -> Decimal:
+    with localcontext() as context:
+        context.prec = 100
+        return Decimal(value.numerator) / Decimal(value.denominator)
+
+
+def test_joint_limit_rounding_is_inward_against_the_real_endpoint_regression() -> None:
+    """Regression for the old libm comparison, which missed both directions by ~1e-17."""
+
+    q_lower = Fraction(36, 35)
+    q_upper = Fraction(79, 70)
+    lower, upper = joint_limits_to_t_bounds(q_lower, q_upper)
+
+    assert _decimal_fraction(lower) >= _decimal_tan_half(q_lower)
+    assert _decimal_fraction(upper) <= _decimal_tan_half(q_upper)
+
+
+@pytest.mark.parametrize("denominator", [0, -1, True])
+def test_joint_limit_conversion_rejects_invalid_denominators(denominator: int) -> None:
+    with pytest.raises(ValueError, match="positive integer"):
+        joint_limits_to_t_bounds(Fraction(-1), Fraction(1), denominator=denominator)
