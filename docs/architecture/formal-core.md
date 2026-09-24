@@ -64,7 +64,12 @@ The certificate and result layers provide:
 
 ## Serialization and hashing
 
-All Phase 0 schemas use version `0.1.0`. Canonical serialization uses UTF-8 JSON
+Claims, certificates, and problem inputs use version `0.1.0`. Result factories emit
+version `0.2.0` (`robocert.results.RESULT_SCHEMA_VERSION`), which requires a
+`counterexample` field: a witness object for `COUNTEREXAMPLE`, and null otherwise.
+The original result v0.1.0 contract remains available for historical validation;
+schema validation alone does not establish that a recorded witness was checked.
+Canonical serialization uses UTF-8 JSON
 with sorted object keys, no insignificant whitespace, and no ASCII escaping.
 JSON floating-point values are forbidden. Exact numeric data uses:
 
@@ -85,7 +90,14 @@ The versioned schemas are:
 
 - `schemas/claim.schema.json`;
 - `schemas/certificate.schema.json`;
-- `schemas/result.schema.json`.
+- `schemas/result.schema.json` (current result v0.2.0);
+- `schemas/result-0.1.0.schema.json` (unchanged historical result contract).
+
+Both result schemas are packaged and exposed by `schema_document(name)`.
+Consumers must select the contract matching the artifact's version. Old result
+documents are not automatically upgraded: a historical counterexample without a
+witness needs a fresh exact refutation before a v0.2 result can be emitted.
+Embedded certificates keep their own v0.1.0 version.
 
 Every versioned artifact object rejects unknown properties. A certificate payload
 is the intentional extension point for a future certificate-family schema; it may

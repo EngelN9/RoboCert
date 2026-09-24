@@ -4,6 +4,7 @@ import pytest
 
 from robocert.artifacts import digest_json
 from robocert.results import (
+    RESULT_SCHEMA_VERSION,
     CertificationResult,
     ResultStatus,
     numerical_result,
@@ -28,6 +29,7 @@ def test_unknown_result_preserves_diagnostics() -> None:
     )
     assert result.status is ResultStatus.UNKNOWN
     assert result.diagnostics == ("no production checker registered",)
+    assert result.schema_version == RESULT_SCHEMA_VERSION == "0.2.0"
 
 
 @pytest.mark.parametrize(

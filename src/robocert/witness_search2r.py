@@ -30,6 +30,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from fractions import Fraction
+from math import factorial
 
 # Reconstruction ladder. Larger denominators put the achieved point nearer the
 # request at the cost of bigger coefficients; the search walks this until the
@@ -171,6 +172,59 @@ def solve_reachable_targets(
     return candidates
 
 
+_PRINCIPAL_CHART_LIMIT = Fraction(31, 10)
+
+
+def _sin_cos_bounds(value: Fraction, *, terms: int = 24) -> tuple[Fraction, ...]:
+    """Exact rational Taylor enclosures for sine and cosine.
+
+    Taylor's theorem gives an absolute remainder bounded by the first omitted
+    power divided by its factorial because every derivative of sine and cosine
+    has absolute value at most one.  The deliberately narrow principal-chart
+    input range below keeps the cosine lower bound positive.
+    """
+
+    magnitude = abs(value)
+    sine = sum(
+        Fraction(-1) ** index * magnitude ** (2 * index + 1) / factorial(2 * index + 1)
+        for index in range(terms + 1)
+    )
+    sine_remainder = magnitude ** (2 * terms + 2) / factorial(2 * terms + 2)
+    sine_lower, sine_upper = sine - sine_remainder, sine + sine_remainder
+    if value < 0:
+        sine_lower, sine_upper = -sine_upper, -sine_lower
+
+    cosine = sum(
+        Fraction(-1) ** index * magnitude ** (2 * index) / factorial(2 * index)
+        for index in range(terms + 1)
+    )
+    cosine_remainder = magnitude ** (2 * terms + 1) / factorial(2 * terms + 1)
+    return sine_lower, sine_upper, cosine - cosine_remainder, cosine + cosine_remainder
+
+
+def _tan_half_bounds(angle: Fraction) -> tuple[Fraction, Fraction]:
+    sine_lower, sine_upper, cosine_lower, cosine_upper = _sin_cos_bounds(angle / 2)
+    if cosine_lower <= 0:
+        raise ValueError("failed to prove a positive half-angle cosine")
+    quotients = (
+        sine_lower / cosine_lower,
+        sine_lower / cosine_upper,
+        sine_upper / cosine_lower,
+        sine_upper / cosine_upper,
+    )
+    return min(quotients), max(quotients)
+
+
+def _floor_to_grid(value: Fraction, denominator: int) -> Fraction:
+    return Fraction(
+        (value * denominator).numerator // (value * denominator).denominator, denominator
+    )
+
+
+def _ceil_to_grid(value: Fraction, denominator: int) -> Fraction:
+    return -_floor_to_grid(-value, denominator)
+
+
 def joint_limits_to_t_bounds(
     q_lower: Fraction, q_upper: Fraction, *, denominator: int = 10**12
 ) -> tuple[Fraction, Fraction]:
@@ -189,30 +243,30 @@ def joint_limits_to_t_bounds(
     the conservative-modeling direction AGENTS.md SS49 permits, stated explicitly
     rather than left implicit. Tracked as RC-004.
 
-    Requires -pi < q_lower < q_upper < pi: the chart does not reach +-pi, and a
-    caller wanting configurations there needs the four-chart driver instead.
+    This exact implementation supports `-3.1 <= q_lower < q_upper <= 3.1`.
+    That rational range lies strictly inside `(-pi, pi)` and avoids making a
+    soundness claim about the platform `math.pi` or `math.tan`. A caller wanting
+    the omitted sliver near `+-pi`, or the boundary itself, needs another chart.
     """
     if q_lower >= q_upper:
         raise ValueError("joint limit lower bound must be strictly below the upper bound")
-    if not (-math.pi < float(q_lower) and float(q_upper) < math.pi):
+    if not (q_lower >= -_PRINCIPAL_CHART_LIMIT and q_upper <= _PRINCIPAL_CHART_LIMIT):
         raise ValueError(
-            "joint limits must lie strictly inside (-pi, pi); the half-angle chart "
-            "cannot represent +-pi (see certify2r for four-chart coverage)"
+            "joint limits must lie inside the exactly supported principal-chart range "
+            "[-3.1, 3.1]; use another chart for the omitted sliver near +-pi"
         )
 
-    lower_exact = math.tan(float(q_lower) / 2.0)
-    upper_exact = math.tan(float(q_upper) / 2.0)
+    if not isinstance(denominator, int) or isinstance(denominator, bool) or denominator < 1:
+        raise ValueError("denominator must be a positive integer")
 
-    # tan(q/2) is strictly increasing on (-pi, pi), so inward means: raise the
-    # lower bound, lower the upper bound. limit_denominator can round either
-    # way, so nudge and then assert the direction actually holds.
-    lower = Fraction(lower_exact).limit_denominator(denominator)
-    upper = Fraction(upper_exact).limit_denominator(denominator)
-    step = Fraction(1, denominator)
-    while float(lower) < lower_exact:
-        lower += step
-    while float(upper) > upper_exact:
-        upper -= step
+    # tan(q/2) is strictly increasing on the supported interval.  An upper
+    # enclosure at the lower endpoint, rounded up to the requested rational
+    # grid, and a lower enclosure at the upper endpoint, rounded down, are
+    # therefore genuinely inward. No binary floating-point value participates.
+    _, lower_upper = _tan_half_bounds(q_lower)
+    upper_lower, _ = _tan_half_bounds(q_upper)
+    lower = _ceil_to_grid(lower_upper, denominator)
+    upper = _floor_to_grid(upper_lower, denominator)
 
     if lower >= upper:
         raise ValueError(
@@ -220,6 +274,54 @@ def joint_limits_to_t_bounds(
             "rounding; widen the limits or raise the denominator"
         )
     return (lower, upper)
+
+
+def angle_to_t_candidate(q: float, *, denominator: int = 10**12) -> Fraction:
+    """Rational `t = tan(q/2)` candidate for a joint angle in radians.
+
+    For generic radian angles `tan(q/2)` is irrational, so no exact rational equals it and
+    this returns a nearby one. The returned `t` therefore denotes a slightly DIFFERENT
+    configuration from `q`; `t_to_angle` reports which one.
+
+    **This needs no rounding-direction argument, and that is worth saying explicitly because
+    its sibling `joint_limits_to_t_bounds` does.** That function builds a DOMAIN, which
+    nothing downstream re-derives, so its inward rounding is load-bearing: it is what makes
+    the certified box a subset of the requested one. A candidate POINT is different. Every
+    consumer of this function re-derives the point from scratch -- `refutation.refute`
+    re-checks domain membership and re-evaluates the whole formula, and
+    `checkers.ExactWitnessChecker` does the same for witnesses. A candidate that drifts out
+    of the domain, or that no longer violates what it was meant to violate, is rejected on
+    its own merits. Rounding direction can therefore cost a lead but cannot buy an unsound
+    acceptance, which makes it an ergonomics choice rather than a soundness one.
+
+    A consequence worth expecting: an angle very close to a joint limit may transport to a
+    `t` outside a box that `joint_limits_to_t_bounds` rounded inward. That is the two
+    approximations disagreeing at the boundary, and the honest outcome is a rejection.
+
+    **`denominator` trades witness size against angle accuracy, and the default is biased
+    toward accuracy.** At the default the returned rational typically has a twelve-digit
+    denominator, which round-trips to the sampled angle within float precision but is
+    hostile to audit -- and certificate size is a stated evaluation metric (`README` SS24),
+    with `AGENTS.md` SS7.3 warning against gratuitous coefficient growth. A caller reporting
+    a witness to a human should pass something far coarser and check the result still does
+    what it was wanted for; `solve_reachable_targets` in this module applies exactly that
+    policy, preferring the coarsest candidate that still meets its tolerance. The default
+    matches `joint_limits_to_t_bounds` so that a point and a domain built from the same
+    angle agree rather than straddling an endpoint.
+
+    Requires `-pi < q < pi`: the half-angle chart does not reach `+-pi` (P2 Theorem 12.1).
+    """
+    if not -math.pi < q < math.pi:
+        raise ValueError(
+            "angle must lie strictly inside (-pi, pi); the half-angle chart cannot "
+            "represent +-pi (see certify2r for four-chart coverage)"
+        )
+    return Fraction(math.tan(q / 2.0)).limit_denominator(denominator)
+
+
+def t_to_angle(t: Fraction) -> float:
+    """The radian angle a `t` value actually denotes: `q = 2*atan(t)`. Reporting only."""
+    return 2 * math.atan(float(t))
 
 
 def t_bounds_to_joint_limits(t_lower: Fraction, t_upper: Fraction) -> tuple[float, float]:
@@ -239,9 +341,11 @@ def witness_payload(t1: Fraction, t2: Fraction) -> dict[str, dict[str, dict[str,
 __all__ = [
     "Planar2RInstance",
     "WitnessCandidate",
+    "angle_to_t_candidate",
     "instance_from_witness",
     "joint_limits_to_t_bounds",
     "solve_reachable_targets",
     "t_bounds_to_joint_limits",
+    "t_to_angle",
     "witness_payload",
 ]

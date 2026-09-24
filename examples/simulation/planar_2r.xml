@@ -1,0 +1,51 @@
+<!--
+  Planar 2R arm in the x-z plane, with one cylindrical obstacle.
+
+  Units: metres, radians, seconds, newton-metres. `<compiler angle="radian"/>` is set
+  explicitly so sampled joint values are radians, matching RoboCert's `Unit.RADIAN`.
+
+  This is a DIFFERENT model from the algebraic planar-2R in src/robocert/kinematics2r.py.
+  It carries link inertia, actuator dynamics, contact compliance, and gravity, none of
+  which appear in the certified kinematic model. Agreement between the two is evidence;
+  disagreement is a lead. Neither is a certificate.
+
+  Every geom carries margin="0.05", so MuJoCo reports contact pairs up to 50 mm apart with
+  a positive `dist`. A clearance query above that margin is refused by
+  robocert.simulation.falsification rather than silently answered from pairs MuJoCo never
+  examined.
+
+  Hinge axes are +y and gravity is -z, so gravity genuinely loads both joints and the
+  reported actuator forces are gravity-compensating torques rather than zeros.
+-->
+<mujoco model="robocert_planar_2r">
+  <compiler angle="radian" autolimits="true"/>
+
+  <option timestep="0.002" gravity="0 0 -9.81" integrator="implicitfast"/>
+
+  <default>
+    <geom margin="0.05" condim="3" rgba="0.6 0.6 0.65 1"/>
+    <joint damping="0.5" armature="0.01"/>
+    <position kp="200" kv="20"/>
+  </default>
+
+  <worldbody>
+    <geom name="obstacle" type="cylinder" pos="0.55 0 0.55" zaxis="0 1 0"
+          size="0.09 0.15" rgba="0.75 0.35 0.30 1"/>
+
+    <body name="link1" pos="0 0 0.8">
+      <joint name="q1" type="hinge" axis="0 1 0" range="-1.5 1.5"/>
+      <geom name="link1_geom" type="capsule" fromto="0 0 0 0.5 0 0" size="0.04" mass="1.2"/>
+
+      <body name="link2" pos="0.5 0 0">
+        <joint name="q2" type="hinge" axis="0 1 0" range="-1.5 1.5"/>
+        <geom name="link2_geom" type="capsule" fromto="0 0 0 0.3 0 0" size="0.035" mass="0.6"/>
+        <site name="tool" pos="0.3 0 0" size="0.01"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position name="a1" joint="q1" ctrlrange="-1.5 1.5"/>
+    <position name="a2" joint="q2" ctrlrange="-1.5 1.5"/>
+  </actuator>
+</mujoco>

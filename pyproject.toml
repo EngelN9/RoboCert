@@ -28,6 +28,12 @@ dependencies = []
 robocert = "robocert.cli:main"
 
 [project.optional-dependencies]
+# Untrusted physics-validation backend for falsification search only. It is never
+# imported by `robocert` itself and can never support a CERTIFIED_* result; see
+# docs/architecture/backends.md. `dependencies` above stays empty by policy.
+mujoco = [
+  "mujoco>=3.2,<4",
+]
 dev = [
   "build>=1.2",
   "hatchling>=1.27",
@@ -59,3 +65,10 @@ select = ["B", "E", "F", "I", "RUF", "SIM", "UP"]
 python_version = "3.11"
 strict = true
 files = ["src/robocert"]
+
+# The `mujoco` extra is deliberately absent from CI, so its types are unavailable there.
+# Only src/robocert/simulation/mujoco_backend.py is affected; nothing in the trusted core
+# imports it.
+[[tool.mypy.overrides]]
+module = "mujoco.*"
+ignore_missing_imports = true

@@ -28,20 +28,32 @@ RoboCert is therefore not primarily a trajectory simulator, CAD package, or AI m
 
 ## Status
 
-**Research / pre-alpha — Phase 0 formal core prototype.**
+For the current cross-session checkpoint, open gates, and continuation instructions,
+start with the [September 11 continuity handoff](docs/SESSION_HANDOFF.md).
+
+**Research / pre-alpha — Phase 0 production core with uncommitted research layers.**
 
 RoboCert now contains a typed formal-claim model, versioned JSON schemas,
-canonical artifact hashing, and a checker-gated result boundary. Phase 0 ships
-**no production certificate checker**, robot model, solver, or geometry backend;
-therefore no robot property is currently certified. No production safety claim
-should be inferred until individual certificate backends, checkers, numerical
-kernels, geometry pipelines, and system assumptions have been independently
-validated.
+canonical artifact hashing, and a checker-gated result boundary. The Phase 0
+production core ships **no production certificate checker**; therefore no robot
+property is currently certified. The checkout also contains research-only planar-2R,
+exact-algebra, refutation, and optional simulation layers, but they are not a
+production feasibility-certificate path and do not establish a robot property. No
+production safety claim should be inferred until individual certificate backends,
+checkers, numerical kernels, geometry pipelines, and system assumptions have been
+independently validated.
 
 The current implementation contract and trusted-computing-base declaration are
 documented in [`docs/architecture/formal-core.md`](docs/architecture/formal-core.md)
 and
 [`docs/architecture/trusted-computing-base.md`](docs/architecture/trusted-computing-base.md).
+
+Result factories emit schema v0.2.0 with a required `counterexample` field (a witness
+object for that status, null otherwise). Claims and certificates retain v0.1.0.
+Both the current result contract and the unchanged historical v0.1.0 contract are
+packaged; see the [serialization contract](docs/architecture/formal-core.md#serialization-and-hashing).
+The [counterexample and simulation audit](research/reports/2026-09-07-counterexample-simulation-audit.md)
+records current validation evidence and remaining hardening work.
 
 For local development with Python 3.11 or newer, create one environment and use
 the command form for your platform:
@@ -1559,6 +1571,23 @@ At least initially, RoboCert is **not** intended to be:
 - a black-box trajectory generator;
 - a substitute for hardware validation;
 - a guarantee about phenomena omitted from the mathematical model.
+
+MuJoCo appears in that list twice over: it is not replaced, and it does not replace anything
+here. An optional `mujoco` extra (`src/robocert/simulation/`) runs adversarial sampling,
+contact experiments, and actuator-force observation against a candidate configuration region.
+Its output is search-layer evidence only — a violation it finds is a candidate requiring exact
+re-validation against RoboCert's own model, and finding nothing establishes nothing. It cannot
+produce a `CERTIFIED_*` result, and the core package never imports it.
+
+That re-validation is `robocert.refutation.refute`: given a claim with a purely universal
+quantifier prefix and an exact rational point of its declared domain, it evaluates the claim's
+formula there and, if the formula is false, produces the `CheckedCounterexample` that
+`counterexample_result` requires. It is the only path to `COUNTEREXAMPLE`, it is independent of
+where the point came from, and a point that fails any of its guards yields `UNKNOWN`. Refuting a
+universal claim needs one point; establishing one needs a certificate — which is why this path is
+open while the certification gate stays closed. See
+[`docs/architecture/backends.md`](docs/architecture/backends.md) and
+[`docs/architecture/trusted-computing-base.md`](docs/architecture/trusted-computing-base.md).
 
 ---
 

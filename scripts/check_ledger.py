@@ -10,6 +10,13 @@ Enforces, as a hook rather than a convention (research/README.md rule 3):
   (d) referee gate  - tier E2 or above requires a non-"none" `referee:` field
   (e) history gate  - a `tier:` change must be accompanied by a new `history:` line,
                        checked against the last committed version when available
+  (f) fidelity gate - an entry recording `mechanized:` support must carry a
+                       `fidelity:` field saying how each formal statement was compared
+                       with the entry's `statement:` (research/README.md "Mechanization")
+
+Every recognized field is registered in FIELD_RE. That is load-bearing for (e): a bullet
+under an unregistered field placed after `history:` would otherwise be read as a history
+line and could make an unjustified tier change look justified.
 
 Stdlib only, no dependencies. Exit 0 on a clean ledger, exit 1 with all violations
 printed to stderr otherwise.
@@ -29,7 +36,11 @@ LEDGER_PATH = Path("research/CLAIMS.md")
 TIER_RANK = {"E0": 0, "E1": 1, "E2": 2, "E4": 3, "E3": 4}
 
 ENTRY_HEADER_RE = re.compile(r"^##\s+(RC-\d+)\s*$")
-FIELD_RE = re.compile(r"^(statement|tier|depends|proof|target_checker|referee|history):\s*(.*)$")
+FIELD_RE = re.compile(
+    r"^(statement|tier|depends|proof|target_checker|referee|mechanized|fidelity|history):\s*(.*)$"
+)
+BULLET_FIELDS = ("history", "mechanized")
+PROSE_FIELDS = ("statement", "fidelity")
 DEPENDS_ID_RE = re.compile(r"RC-\d+")
 HISTORY_ITEM_RE = re.compile(r"^\s*-\s+.+$")
 
@@ -58,6 +69,8 @@ def parse_ledger(text: str) -> dict[str, dict]:
                 "proof": "",
                 "target_checker": "",
                 "referee": None,
+                "mechanized": [],
+                "fidelity": "",
                 "history": [],
             }
             current_field = None
@@ -77,19 +90,20 @@ def parse_ledger(text: str) -> dict[str, dict]:
                 entry["depends"] = DEPENDS_ID_RE.findall(value)
             elif current_field == "referee":
                 entry["referee"] = value
-            elif current_field == "history":
+            elif current_field in BULLET_FIELDS:
                 if value:
-                    entry["history"].append(value)
+                    entry[current_field].append(value)
             else:
                 entry[current_field] = value
             continue
 
-        if current_field == "history" and HISTORY_ITEM_RE.match(raw_line):
-            entries[current_id]["history"].append(raw_line.strip())
+        if current_field in BULLET_FIELDS and HISTORY_ITEM_RE.match(raw_line):
+            entries[current_id][current_field].append(raw_line.strip())
             continue
 
-        if current_field == "statement" and raw_line.strip():
-            entries[current_id]["statement"] += " " + raw_line.strip()
+        if current_field in PROSE_FIELDS and raw_line.strip():
+            entry = entries[current_id]
+            entry[current_field] = f"{entry[current_field]} {raw_line.strip()}".strip()
 
     return entries
 
@@ -168,6 +182,17 @@ def check_referee_gate(entries: dict[str, dict]) -> list[str]:
     return errors
 
 
+def check_fidelity_declared(entries: dict[str, dict]) -> list[str]:
+    errors = []
+    for entry_id, entry in entries.items():
+        if entry["mechanized"] and not entry["fidelity"].strip():
+            errors.append(
+                f"{entry_id}: mechanized: requires a fidelity: field stating how each formal "
+                f"statement was compared with statement: (research/README.md 'Mechanization')"
+            )
+    return errors
+
+
 def previous_ledger_text() -> str | None:
     try:
         result = subprocess.run(
@@ -221,6 +246,7 @@ def main() -> int:
     errors += check_acyclic(entries)
     errors += check_monotonicity(entries)
     errors += check_referee_gate(entries)
+    errors += check_fidelity_declared(entries)
     errors += check_history_gate(entries)
 
     if errors:

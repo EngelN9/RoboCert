@@ -9,7 +9,9 @@ from robocert.artifacts import ArtifactDigest, JSONValue
 from robocert.certificates import CertificateConclusion
 from robocert.checking import CheckedCertificate, CheckReport
 from robocert.errors import ValidationError
-from robocert.specification import SCHEMA_VERSION
+from robocert.refutation import CheckedCounterexample, RefutationReport
+
+RESULT_SCHEMA_VERSION = "0.2.0"
 
 
 class ResultStatus(StrEnum):
@@ -31,6 +33,7 @@ class CertificationResult:
     model_hash: ArtifactDigest
     diagnostics: tuple[str, ...]
     checked_certificate: CheckedCertificate | None
+    checked_counterexample: CheckedCounterexample | None
     schema_version: str
 
     def __init__(
@@ -41,6 +44,7 @@ class CertificationResult:
         model_hash: ArtifactDigest,
         diagnostics: tuple[str, ...] = (),
         checked_certificate: CheckedCertificate | None = None,
+        checked_counterexample: CheckedCounterexample | None = None,
         _token: object,
     ) -> None:
         if _token is not _RESULT_TOKEN:
@@ -58,12 +62,18 @@ class CertificationResult:
         )
         if is_certified != (checked_certificate is not None):
             raise ValidationError("only certified results may contain a checked certificate")
+        is_counterexample = status is ResultStatus.COUNTEREXAMPLE
+        if is_counterexample != (checked_counterexample is not None):
+            raise ValidationError(
+                "only counterexample results may contain a checked counterexample"
+            )
         object.__setattr__(self, "status", status)
         object.__setattr__(self, "claim_hash", claim_hash)
         object.__setattr__(self, "model_hash", model_hash)
         object.__setattr__(self, "diagnostics", diagnostics)
         object.__setattr__(self, "checked_certificate", checked_certificate)
-        object.__setattr__(self, "schema_version", SCHEMA_VERSION)
+        object.__setattr__(self, "checked_counterexample", checked_counterexample)
+        object.__setattr__(self, "schema_version", RESULT_SCHEMA_VERSION)
 
     def to_dict(self) -> dict[str, JSONValue]:
         certificate = (
@@ -78,6 +88,11 @@ class CertificationResult:
             "model_hash": str(self.model_hash),
             "diagnostics": list(self.diagnostics),
             "checked_certificate": certificate,
+            "counterexample": (
+                None
+                if self.checked_counterexample is None
+                else self.checked_counterexample.to_dict()
+            ),
         }
 
 
@@ -119,6 +134,39 @@ def unknown_from_check(report: CheckReport) -> CertificationResult:
     return unknown_result(report.claim_hash, report.model_hash, report.diagnostics)
 
 
+def counterexample_result(checked_counterexample: CheckedCounterexample) -> CertificationResult:
+    """Promote a refuted claim to `COUNTEREXAMPLE`.
+
+    The only path to this status, and it is gated by the type: a `CheckedCounterexample`
+    exists only where `robocert.refutation.refute` built one, having confirmed a purely
+    universal quantifier prefix, exact domain membership, and exact falsity of the whole
+    formula at the point. Simulation, optimizer, or solver output reaches this function only
+    by first surviving that check as an exact rational point.
+    """
+
+    if not isinstance(checked_counterexample, CheckedCounterexample):
+        raise TypeError("counterexample_result requires a CheckedCounterexample")
+    return CertificationResult(
+        status=ResultStatus.COUNTEREXAMPLE,
+        claim_hash=checked_counterexample.claim_hash,
+        model_hash=checked_counterexample.model_hash,
+        checked_counterexample=checked_counterexample,
+        _token=_RESULT_TOKEN,
+    )
+
+
+def unknown_from_refutation(report: RefutationReport) -> CertificationResult:
+    """Map a failed refutation to `UNKNOWN`.
+
+    A point that did not refute the claim is not evidence that the claim holds; this
+    deliberately does not produce any feasibility status.
+    """
+
+    if report.accepted:
+        raise ValueError("an accepted refutation must be promoted with counterexample_result")
+    return unknown_result(report.claim_hash, report.model_hash, report.diagnostics)
+
+
 def numerical_result(
     status: ResultStatus,
     claim_hash: ArtifactDigest,
@@ -140,10 +188,13 @@ def numerical_result(
 
 
 __all__ = [
+    "RESULT_SCHEMA_VERSION",
     "CertificationResult",
     "ResultStatus",
     "certified_result",
+    "counterexample_result",
     "numerical_result",
     "unknown_from_check",
+    "unknown_from_refutation",
     "unknown_result",
 ]
