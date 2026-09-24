@@ -1,9 +1,47 @@
-# RoboCert continuity handoff — 2026-09-07, updated 2026-09-11, 2026-09-14 and 2026-09-15
+# RoboCert continuity handoff — 2026-09-07, updated through 2026-09-24
 
 This file preserves the project context needed after the original repository-setup
 session is deleted. It is a progress and continuation record, not a mathematical
 review, proof, attestation, or release approval. The maintainer requested English
 for subsequent communication on 2026-09-07.
+
+## September 24 update — RC-004 repair and two E0 arguments
+
+This section supersedes the older statements below that RC-004 and RC-006 have
+no written arguments; it does not supersede their evidence gates. At inspection,
+`refutation-and-simulation` had a clean working tree, was one local commit ahead
+of the exact remote feature-branch head `23c5744`, and draft PR #3 targeted
+`main`. That local commit, `f350551`, repairs RC-004 endpoint conversion: a
+platform `tan`/float comparison could round outward, so supported exact-rational
+limits now use rational Taylor enclosures, inward grid rounding, and the strict
+principal-chart input range `[-31/10,31/10]`. Unsupported or too-narrow limits
+reject rather than widen the domain.
+
+- `research/proofs/rc004-joint-limit-inward-rounding.md` argues the subset
+  relation on that supported chart, including endpoint enclosure, monotonicity,
+  closed endpoints, excluded `+/-pi`, and the absence of periodic wrap coverage.
+- `research/proofs/rc006-sos-verifier-correspondence.md` maps accepted typed
+  certificates through shape, exact PSD, Gram expansion, equality pairing, and
+  canonical polynomial identity. It is not a robot-property correspondence or
+  a production checker authorization.
+- Both ledger entries remain **E0**. No tier changed, no attestation changed,
+  no checker was registered, and `refute`/`COUNTEREXAMPLE` was not wired into
+  the CLI or generated reports. PR #3 remains draft. Owner E1 reads, fresh
+  referee work, human adversarial review, formal re-attestation, local ACL
+  repair, and the actual-endpoint universal-clearance decision remain blocked
+  on the owner as described below.
+
+Local evidence on 2026-09-24: the focused RC-004/RC-006 tests passed (71),
+the full suite passed (420) with 11 Lean-conformance tests explicitly skipped
+because the pinned Lean toolchain is not installed, and the simulation/boundary
+subset passed (85) with the optional MuJoCo extra installed. Ruff lint/format,
+strict mypy, the seven-entry ledger, report-language checks, frozen RC-002 run,
+and wheel/sdist build plus clean wheel-install smoke passed. The attestation
+record check passed its digest/policy checks but reported local Rocq and
+Isabelle kernel reruns as **unavailable**, not as passes. These checks are
+implementation evidence, not an owner read, proof promotion, or a certificate.
+Fresh PR #3 exact-head CI remains a publication check, not a substitute for
+those research and formal gates.
 
 ## September 15 update — work committed on its own branch, refutation defect repaired
 

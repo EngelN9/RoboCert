@@ -190,9 +190,8 @@ statement: Converting a radian joint interval to an exact rational
   requested radian interval admits.
 tier: E0
 depends: []
-proof: none yet -- the direction is argued in
-  src/robocert/witness_search2r.py::joint_limits_to_t_bounds and tested in
-  tests/test_witness_search2r.py, but no written argument exists
+proof: research/proofs/rc004-joint-limit-inward-rounding.md (E0 draft;
+  exact principal-chart implementation correspondence, not owner-reviewed)
 target_checker: n/a (an input transformation, not a certificate family)
 referee: none
 history:
@@ -204,6 +203,10 @@ history:
     soundness-relevant and belongs in the ledger rather than in a code comment,
     even though the argument is short. Currently supported by a property test
     over sampled intervals, not by a proof.
+  - 2026-09-24 exact endpoint-enclosure repair at f350551 and E0 argument written.
+    The old libm comparison could round outward. The new supported range is
+    [-31/10, 31/10], strictly inside the principal chart; unsupported intervals
+    reject, and an empty inward grid rejects. No tier change or checker registration.
 
 ## RC-005
 
@@ -295,12 +298,8 @@ statement: `src/robocert/sos.py::verify` accepts a Positivstellensatz certificat
   `K = {x : g_i(x) >= 0, h_j(x) = 0}`.
 tier: E0
 depends: []
-proof: none yet -- the Positivstellensatz SUFFICIENCY direction being appealed to is elementary
-  (at a point of K every g_i is nonnegative, every h_j vanishes, and every sigma is a sum of
-  squares, so the right-hand side is nonnegative), but the claim asserted here is
-  IMPLEMENTATION CORRESPONDENCE: that the shipped code decides exactly that condition. That is
-  what needs a written argument, and none exists. Covered so far only by
-  tests/test_sos.py, tests/test_linalg_exact.py, tests/test_polynomial.py
+proof: research/proofs/rc006-sos-verifier-correspondence.md (E0 draft;
+  typed-input acceptance implies exact PSD and identity, not owner-reviewed)
 target_checker: not registered and not a `checking.Checker`. `src/robocert/sos.py` is a
   verification utility bound to no certificate family; binding one is a separate,
   evidence-gated change
@@ -321,6 +320,9 @@ history:
     statement about equality multipliers alone, which would say nothing about nonnegativity.
     Both have dedicated tests. Neither is established by those tests -- a passing test is not a
     proof, and this entry stays E0 until the correspondence argument is written and read.
+  - 2026-09-24 E0 implementation-correspondence argument written against the
+    current exact-algebra utility. No tier change, robot-property suitability
+    claim, certificate-family binding, or production checker registration.
 
 ## RC-007
 
