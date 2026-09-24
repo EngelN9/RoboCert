@@ -38,5 +38,6 @@ hooks (`.claude/settings.json`) — they cannot be argued around, by design.
 
 `src/robocert` is the runtime package; changes there follow `AGENTS.md` §19–24
 (repository architecture, module dependency rules, coding standards, testing
-requirements) directly. `ROADMAP.md` is the phased plan; `research/` tracks
-progress against it, it does not replace it.
+requirements) directly. `ROADMAP.md` is the ordered research plan (the original phased
+plan is archived in `docs/archive/`); `research/` tracks progress against it, it does not
+replace it.

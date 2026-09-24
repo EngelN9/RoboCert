@@ -124,7 +124,8 @@ def solve_reachable_targets(
     inflating the rational coefficients -- and through the quartic forward
     kinematics that inflation is severe, producing certificates with
     fifty-digit numerators that are correct but hostile to audit. Certificate
-    size is a stated evaluation metric (README SS24) and AGENTS.md SS7.3 warns
+    size is a stated evaluation metric (docs/archive/initial-project-overview.md
+    SS24) and AGENTS.md SS7.3 warns
     against gratuitous coefficient growth. If nothing meets the tolerance, fall
     back to the most accurate candidate available.
 
@@ -301,7 +302,8 @@ def angle_to_t_candidate(q: float, *, denominator: int = 10**12) -> Fraction:
     **`denominator` trades witness size against angle accuracy, and the default is biased
     toward accuracy.** At the default the returned rational typically has a twelve-digit
     denominator, which round-trips to the sampled angle within float precision but is
-    hostile to audit -- and certificate size is a stated evaluation metric (`README` SS24),
+    hostile to audit -- and certificate size is a stated evaluation metric
+    (`docs/archive/initial-project-overview.md` SS24),
     with `AGENTS.md` SS7.3 warning against gratuitous coefficient growth. A caller reporting
     a witness to a human should pass something far coarser and check the result still does
     what it was wanted for; `solve_reachable_targets` in this module applies exactly that

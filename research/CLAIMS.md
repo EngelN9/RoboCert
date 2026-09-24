@@ -40,10 +40,12 @@ is the proposition this entry means (see `research/README.md` "Mechanization").
 
 ## RC-001
 
-statement: The SOS/Positivstellensatz certificate family (`README.md` §8.2) is a
+statement: The SOS/Positivstellensatz certificate family
+  (`docs/archive/initial-project-overview.md` §8.2) is a
   sound scheme for certifying singularity-margin claims
   `sigma_min(J(q,theta)) >= epsilon` for the planar 2R benchmark
-  (`ROADMAP.md` Phase 1 / `README.md` §32 "First minimal viable theorem") under
+  (`docs/archive/initial-phased-roadmap.md` Phase 1 /
+  `docs/archive/initial-project-overview.md` §32 "First minimal viable theorem") under
   interval link-length uncertainty `theta in Theta`.
 tier: E0
 depends: []
@@ -55,13 +57,17 @@ history:
   - 2026-08-16 noted: Phase 1 Slice 1 shipped a different, non-SOS, non-robust
     approach (RC-002) for a single fixed instance only. This claim's SOS-based,
     robust (`forall theta`) approach remains open and unaddressed.
+  - 2026-09-24 note: references re-pointed from `README.md` and `ROADMAP.md` to their
+    verbatim archives under `docs/archive/`, because the restructured README and ROADMAP no
+    longer carry those sections. Statement meaning unchanged; no tier change.
 
 ## RC-002
 
 statement: The tangent-half-angle + case-split point-segment-distance polynomial
   encoding (`src/robocert/kinematics2r.py`) is a sound representation of the
   single-instance planar-2R reachability + joint-limit + obstacle-clearance +
-  singularity-margin conjunction (`README.md` §32 "First minimal viable theorem",
+  singularity-margin conjunction (`docs/archive/initial-project-overview.md` §32
+  "First minimal viable theorem",
   restricted to one fixed rational instance, not robust over `theta` or `x`),
   exactly checkable via rational `Predicate`/`Formula` evaluation
   (`src/robocert/checkers.py::ExactWitnessChecker`).
@@ -155,6 +161,9 @@ history:
     It is not covered by the 2026-08-17 human attestation; a project-owner
     line-by-line read is required before the repaired proof package may enter a
     fresh E1-to-E2 referee run.
+  - 2026-09-24 note: the `README.md` §32 reference was re-pointed to its verbatim archive,
+    `docs/archive/initial-project-overview.md` §32, because the restructured README no longer
+    carries that section. Statement meaning unchanged; no tier change.
 
 ## RC-003
 

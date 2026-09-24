@@ -1,7 +1,7 @@
 # 2R planar family
 
 Top of this file's lattice: `C_2R-planar-exact` — the Phase-1 benchmark
-(`ROADMAP.md` §32, "First minimal viable theorem").
+(`docs/archive/initial-project-overview.md` §32, "First minimal viable theorem").
 
 ## C_2R-planar-exact.nominal
 
@@ -24,7 +24,7 @@ claims: [RC-001]
 parent: C_2R-planar-exact.nominal
 extra_hypothesis: relaxes the nominal-length assumption — link lengths
   `L_i in [L_i^-, L_i^+]` (interval uncertainty), i.e. the actual Phase-1 target
-  theorem in full (`ROADMAP.md` §1.2).
+  theorem in full (`docs/archive/initial-phased-roadmap.md` Phase 1 §1.2).
 status: open
 test_1_not_known: not found in `research/literature/`.
 test_2_retains_difficulty: adds robust quantification `forall theta in Theta` on

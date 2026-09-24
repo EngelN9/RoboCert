@@ -313,10 +313,9 @@ additional sampling guards were implemented. Its latest recorded regression is
 406 passed / 11 skipped, with lint, types, ledger, frozen-run and distribution
 checks passing. These are implementation results, not research-tier promotions.
 
-One documentation debt remains visible: the README's broad Phase 0 status sentence
-says no robot model, solver or geometry backend ships, although later research
-sections and source now include 2R and optional simulation work. Interpret that
-sentence as the original Phase 0 scope; use the detailed current boundaries above.
+The README documentation debt noted here earlier was resolved on 2026-09-24. The README and
+ROADMAP were restructured into a short overview and an ordered plan with gates, and the
+original texts are archived verbatim under `docs/archive/`. No tier changed.
 
 ## Research state and next gates
 
