@@ -55,7 +55,7 @@ statuses or replace its deterministic certificate-checking boundary.
 | `certificates/` + `checkers/`, small trust base | Already exists: `src/robocert/certificates.py`, `src/robocert/checking.py`, `docs/architecture/trusted-computing-base.md` |
 | Adversarial referee subagents | Codex: `.codex/agents/referee-hostile.toml`, `.codex/agents/referee-naive.toml`; Claude: `.claude/agents/referee-hostile.md`, `.claude/agents/referee-naive.md` |
 | Counterexample search agent | Codex: `.codex/agents/adversary.toml`; Claude: `.claude/agents/adversary.md`; both complement `AGENTS.md` §31 and the planned `CounterexampleAgent` |
-| `reports/` | `research/reports/`, one per `ROADMAP.md` §13 milestone |
+| `reports/` | `research/reports/`, one per research milestone (original list: `docs/archive/initial-phased-roadmap.md` §13) |
 | Agent skills, definitions, and hooks | Codex: `.agents/skills/`, `.codex/agents/`, `.codex/hooks.json`; Claude: `.claude/skills/`, `.claude/agents/`, `.claude/settings.json`; see `research/README.md` and `.claude/CLAUDE.md` |
 
 ## Precedence

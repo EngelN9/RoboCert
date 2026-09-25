@@ -2,7 +2,9 @@
 
 Nodes are strengthenings of a claim family's hypotheses (fix a parameter, restrict
 the class, drop uncertainty, bound dimension); edges are implications; each node
-carries a status. The top-level lattice mirrors `ROADMAP.md`'s Benchmark Ladder:
+carries a status. The top-level lattice mirrors the Benchmark Ladder (§6) of the archived
+roadmap, `docs/archive/initial-phased-roadmap.md`. Its phase and level numbers are
+historical labels, not current milestones:
 
 ```
 C_general (industrial CAD workstation, Phase 7)
@@ -45,4 +47,4 @@ claims: [RC-xxx, ...]
 ---
 
 See `2r-planar.md` for the first populated node, matching the Phase-1 pilot
-(`ROADMAP.md` §32 / `research/CLAIMS.md` RC-001).
+(`docs/archive/initial-project-overview.md` §32 / `research/CLAIMS.md` RC-001).

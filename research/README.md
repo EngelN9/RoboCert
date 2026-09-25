@@ -7,8 +7,9 @@ which is the runtime package, and from `schemas/claim.schema.json` /
 one robot/task/uncertainty combination.
 
 Background and rationale: `docs/methodology/`. Canonical engineering/soundness policy
-(unchanged by this directory): `AGENTS.md`. Phased plan this ledger tracks progress
-against: `ROADMAP.md`.
+(unchanged by this directory): `AGENTS.md`. Research plan this ledger tracks progress
+against: `ROADMAP.md` (the original phased plan is archived at
+`docs/archive/initial-phased-roadmap.md`).
 
 ## Evidence tiers
 
@@ -32,7 +33,8 @@ identities (currently, the RC-005 nondegeneracy facts that rule out a `Seg`-cons
 unsoundness three isolated adversary runs independently found). Isabelle covers the
 bounded-existential quantifier transport (currently, the RC-002 corrigendum's C2 step,
 proved generically). None of the three attempts real quantifier elimination or an SOS/SDP
-backend — that remains unimplemented, per `ROADMAP.md` Phase 3 and Phase 1.3/1.4.
+backend — that remains unimplemented (originally planned as Phase 3 and §1.3/§1.4 of the
+archived `docs/archive/initial-phased-roadmap.md`; current order in `ROADMAP.md` G2 and G5).
 
 Mechanization is deliberately **not** an evidence tier, for the same reason `E2` and `E3` are
 not ordered: it is a different kind of evidence. A kernel-checked proof about a model of a
@@ -96,21 +98,21 @@ research/
 ├── ATTEMPTS.md         failed proof/algorithm attempts, diagnosed failure point
 ├── OBSTRUCTIONS.md     barrier theorems: "technique class T cannot work because..."
 ├── literature/         LIT-xxx.md, one file per verified source locator
-├── special-cases/      specialization lattice, keyed to ROADMAP's benchmark ladder
+├── special-cases/      specialization lattice, keyed to the archived roadmap's benchmark ladder
 ├── notes/              exploratory scratch — explicitly E0, never cited
-└── reports/            one report per ROADMAP §13 milestone
+└── reports/            one report per research milestone
 ```
 
 ## Workstream → artifact mapping
 
 | Manual workstream | RoboCert artifact |
 |---|---|
-| W1 — Refutation / counterexample search | Codex `.codex/agents/adversary.toml` and Claude `.claude/agents/adversary.md`; results are logged in `CLAIMS.md` / `OBSTRUCTIONS.md`. Complements `AGENTS.md` §31 and ROADMAP's planned `CounterexampleAgent`. |
+| W1 — Refutation / counterexample search | Codex `.codex/agents/adversary.toml` and Claude `.claude/agents/adversary.md`; results are logged in `CLAIMS.md` / `OBSTRUCTIONS.md`. Complements `AGENTS.md` §31 and the `CounterexampleAgent` proposed in the archived overview (`docs/archive/initial-project-overview.md` §15). |
 | W2 — Reduction to known results | `literature/`, created only via the `cite` skill; operationalizes `AGENTS.md` §67. |
-| W3 — Meaningful special cases | `special-cases/`, keyed to `ROADMAP.md`'s Benchmark Ladder (2R ⊃ 3R ⊃ spatial-3DOF ⊃ 6-DOF ⊃ 6/7-DOF robust ⊃ CAD workstation ⊃ continuous path). |
+| W3 — Meaningful special cases | `special-cases/`, keyed to the Benchmark Ladder of `docs/archive/initial-phased-roadmap.md` §6 (2R ⊃ 3R ⊃ spatial-3DOF ⊃ 6-DOF ⊃ 6/7-DOF robust ⊃ CAD workstation ⊃ continuous path). |
 | W4 — Proof/algorithm attempts | `CLAIMS.md` (`RC-xxx`) for live claims, `ATTEMPTS.md` for abandoned routes. |
 | W5 — Precise obstructions | `OBSTRUCTIONS.md`. |
-| W6 — Report | `reports/`, one per `ROADMAP.md` §13 milestone. |
+| W6 — Report | `reports/`, one per research milestone (the original list is `docs/archive/initial-phased-roadmap.md` §13). |
 
 ## Rules
 

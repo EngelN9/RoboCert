@@ -20,7 +20,8 @@ believe paper X shows Y" is not a citation and must not appear in a
    hypotheses in the paper's own notation. Do not paraphrase at this step —
    paraphrasing is where hallucinated hypotheses creep in.
 3. **Translate.** Restate the result in RoboCert's semialgebraic/quantifier
-   notation (`README.md` §2–4), and justify the translation step by step.
+   notation (`docs/concepts/certification-goals.md`; full original treatment in
+   `docs/archive/initial-project-overview.md` §2–4), and justify the translation step by step.
 4. **Identify every gap.** Enumerate every hypothesis RoboCert's setting does not
    satisfy verbatim, and state whether each is essential or can be relaxed for the
    present use. This field is where most bad reductions actually break — do not

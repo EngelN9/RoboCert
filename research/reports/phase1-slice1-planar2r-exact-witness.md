@@ -8,8 +8,9 @@
 
 ## 1. Statement and conventions
 
-Target theorem this slice is one instance of (`AGENTS.md` §68, `README.md` §32,
-`ROADMAP.md` Phase 1):
+Target theorem this slice is one instance of (`AGENTS.md` §68,
+`docs/archive/initial-project-overview.md` §32, `docs/archive/initial-phased-roadmap.md`
+Phase 1):
 
 ```
 forall theta in Theta, forall x in T, exists q in Q:

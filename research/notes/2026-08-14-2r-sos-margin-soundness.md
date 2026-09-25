@@ -7,7 +7,7 @@ been adversarially reviewed and must not be cited as evidence anywhere outside
 
 ## Target claim (RC-001)
 
-For the planar 2R robot (`ROADMAP.md` §1.1) with tangent-half-angle variables
+For the planar 2R robot (`docs/archive/initial-phased-roadmap.md` Phase 1 §1.1) with tangent-half-angle variables
 `t_i = tan(q_i/2)`, interval link lengths `L_i in [L_i^-, L_i^+]`, and Jacobian
 `J(q, theta)`, certify
 
@@ -24,13 +24,13 @@ det(J J^T) - gamma = sigma_0 + sum_i sigma_i * g_i(q, theta) + sum_j lambda_j * 
 over the domain `K = {(q, theta) : g_i >= 0, h_j = 0}` defined by the region `R`,
 joint limits, and the rationalized kinematic identities, where `sigma_min(J)^2` is
 sufficient for the margin claim when `det(J J^T)` is used as the algebraic surrogate
-(`README.md` §10 states the surrogate-sufficiency condition that must be checked
+(`docs/archive/initial-project-overview.md` §10 states the surrogate-sufficiency condition that must be checked
 explicitly for this specific claim — not yet done here).
 
 ## Open gaps (why this is E0, not E1)
 
 1. The surrogate condition "`det(J J^T) >= gamma > 0` is sufficient for the intended
-   singularity claim" is asserted in `README.md` §10 in general but has not been
+   singularity claim" is asserted in `docs/archive/initial-project-overview.md` §10 in general but has not been
    verified for this specific 2R parameterization and margin definition.
 2. The tangent-half-angle substitution introduces denominator conditions
    (`1 + t_i^2 != 0`, always true over the reals, but chart-boundary behavior at

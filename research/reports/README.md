@@ -6,7 +6,8 @@
   result v0.2 migration, refutation API review, simulation validation, fresh local
   checks, and outstanding hardening obligations. This record does not promote a research tier.
 
-One report per `ROADMAP.md` §13 milestone (e.g. `01-formal-claim-schema.md`,
+One report per research milestone (the original milestone list is §13 of the archived
+`docs/archive/initial-phased-roadmap.md`; e.g. `01-formal-claim-schema.md`,
 `06-2r-robust-reachability-certificate.md`), written continuously as work
 progresses, not assembled at the end. A report is the project's actual output even
 when the underlying claim remains open — especially then.

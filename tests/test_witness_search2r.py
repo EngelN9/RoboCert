@@ -187,7 +187,8 @@ def test_an_angle_beyond_the_joint_limits_transports_outside_the_box() -> None:
 def test_a_coarser_denominator_buys_a_smaller_witness_at_a_cost_in_angle() -> None:
     """The size/accuracy trade the caller is choosing, pinned as a checked fact.
 
-    Certificate size is an evaluation metric (README §24) and AGENTS.md §7.3 warns against
+    Certificate size is an evaluation metric (docs/archive/initial-project-overview.md §24)
+    and AGENTS.md §7.3 warns against
     gratuitous coefficient growth, so the trade needs to be visible rather than folded into
     a default nobody revisits.
     """

@@ -210,7 +210,8 @@ change.
 2. **Untrusted adapter boundary** — `robocert.backends` protocol plus `pyproject.toml` extras;
    first adapter emits a candidate from Julia/SumOfSquares. Generation only.
 3. **Gröbner cofactor / ideal-membership checker** on the same core → certified infeasibility
-   (`ROADMAP.md` Phase 9).
+   (Phase 9 of the archived `docs/archive/initial-phased-roadmap.md`; not in the current
+   `ROADMAP.md` order).
 4. **dReal adapter**, counterexample search only.
 5. **Drake/C-IRIS region generation**, checked by (1).
 
