@@ -4,7 +4,50 @@
 >
 > **Normative status:** this file defines repository-wide operating rules unless a more specific `AGENTS.md` in a subdirectory explicitly strengthens them.
 >
+> **Entry points:** `.claude/CLAUDE.md` (Claude Code) and the Codex configuration under `.codex/` and `.agents/` point here and defer to this file. It is the single policy text shared by every agent and provider.
+>
 > **Project:** RoboCert — mathematical certification of robotic reachability, collision freedom, singularity separation, and feasibility under geometric and manufacturing uncertainty.
+
+---
+
+# Reading Guide (non-normative)
+
+This guide summarizes and indexes the policy. The numbered sections are normative; where this guide and a section disagree, the section wins.
+
+Section numbers are stable. The research ledger, reports, tests, scripts, and agent definitions cite them (for example `AGENTS.md` §67), so sections are never renumbered: new policy is appended as a new section.
+
+## Core rules at a glance
+
+1. Search may be heuristic; certification may not. Keep candidate, numerical validation, certificate, and independent check distinct. (§0)
+2. Only a checker-accepted certificate yields `CERTIFIED_*`. When in doubt, return `UNKNOWN`. (§4.1, §15)
+3. Failure to prove is not proof of failure. (§4.2)
+4. A small residual is not an equality proof, and sampling is not universal quantification. (§4.3, §4.4)
+5. LLM output is never a proof certificate. (§4.5)
+6. Every geometry approximation states its direction, outer or inner. (§4.6, §49)
+7. The quantifier prefix is part of the theorem; never reorder quantifiers silently. (§1, §6)
+8. Solvers propose; small deterministic checkers decide, on a different implementation path where practical. (§14.1, §53, §57)
+9. Certificates depend only on serialized, hash-bound artifacts, never on hidden solver state. (§14.3, §54)
+10. Explicit types, units, exact arithmetic, and determinism in the trusted path. (§22)
+11. Tests, including corruption and adversarial tests, before a task counts as complete. (§24, §71)
+12. Qualify every strong word; never overclaim. (§36, §66)
+13. Any mandatory stop condition halts promotion to certified status. (§72)
+14. Research claims go through the ledger: enter at E0, no self-refereeing, diagnosed failures, verified citations, blind adversaries. (§67, §76)
+15. A nested `AGENTS.md` may only strengthen these rules. (§3, §74)
+
+## Topic index
+
+| Topic | Sections |
+|---|---|
+| Soundness core | §0 Prime Directive; §4 Core Soundness Invariants; §15 Result Semantics; §18 Soundness Levels; §72 Mandatory Stop Conditions; §75 Final Rule |
+| Claims and specification | §1 Mission; §5 Mathematical Object Model; §6 Quantifier Discipline; §45 Strict Inequalities; §46 Boundary Analysis; §47 Degeneracy Policy; §48 Genericity Assumptions; §50 Completeness Claims; §51 Termination Claims; §59 Formal Specification Schema; §60 Assumption Management |
+| Kinematics and mathematics | §2 Expertise Standard; §7 Robot Kinematic Modeling Rules; §8 Real Algebraic Geometry Protocol; §9 Polynomial Optimization and SOS Protocol; §10 Interval Arithmetic and Validated Numerics Protocol; §11 Collision Certification Protocol; §12 Singularity Certification Protocol; §13 Robustness and Uncertainty Protocol; §41 Symbolic-Numeric Interface Rules; §42 Scaling and Conditioning; §43 Lie Group / Polynomial Interface; §44 Quaternion Rules; §49 Exact vs Conservative Modeling |
+| Certificates and checking | §14 Formal Methods and Proof Objects; §52 Proof Certificate Versioning; §53 Checker Independence; §54 Hash Binding; §55 Cache Safety; §57 External Solver Policy; §58 Solver Adapter Contract |
+| Code and architecture | §19 Repository Architecture; §20 Module Dependency Rules; §21 Development Workflow for Agents; §22 Coding Standards; §23 Naming Conventions; §27 Performance Optimization Rules; §28 Domain Decomposition Protocol; §56 Parallelism Rules |
+| Testing and validation | §24 Testing Requirements; §25 Benchmark Policy; §26 Cross-Validation Policy; §29 Infeasibility Protocol; §30 Minimal Conflict Explanations; §31 Counterexample Protocol |
+| Research process and evidence | §39 Research Experiment Rules; §40 Notebook Policy; §67 Research Citation Policy; §68 First Mathematical Milestone; §69 Research Roadmap Priorities; §76 Research Ledger Discipline |
+| Reporting, provenance, and wording | §33 Provenance Requirements; §34 Reproducibility Rules; §35 Documentation Rules; §36 Claim Wording Rules; §37 Pull Request Requirements; §38 Soundness-Critical Review Checklist; §65 Explanation Policy; §66 No Overclaiming |
+| Scope boundaries | §32 CAD and Geometry Ingestion Rules; §61 Dynamics Boundary; §62 Control Boundary; §63 Functional Safety Boundary; §64 Human Factors Boundary |
+| Agents and precedence | §3 Authority and Instruction Precedence; §16 Agent Roles; §17 Agent Communication Contract; §70 What Agents Should Optimize For; §71 Completion Criteria for Agent Tasks; §73 Preferred Mathematical Failure Mode; §74 Subdirectory AGENTS.md Guidance |
 
 ---
 
@@ -991,6 +1034,8 @@ RoboCert may use multiple specialized agents.
 
 Agents MUST remain within their role boundaries.
 
+> **Current status.** The ten roles below are a design vocabulary for a future orchestration layer; none is implemented as an agent. The agents that exist are review and search agents defined for both providers (`.claude/agents/`, `.codex/agents/`): `adversary`, `referee-hostile`, `referee-naive`, and `lit-extractor`. Their separation rules are in §76. The boundaries below still apply to any agent or person doing one of these jobs.
+
 ---
 
 ## 16.1 `SpecificationAgent`
@@ -1209,6 +1254,8 @@ message:
 
 Do not pass mathematical results as prose only when a structured representation exists.
 
+> **Current status.** No agent-to-agent orchestration exists yet. Hand-offs between the review agents are frozen, hash-validated files, as in `docs/methodology/cross-verification-protocol-v2.md` and `benchmarks/proof-verification/`.
+
 ---
 
 # 18. Soundness Levels
@@ -1254,59 +1301,27 @@ Only `CHECKED_CERTIFICATE` may support `CERTIFIED_*` statuses.
 
 # 19. Repository Architecture
 
-Recommended layout:
+Current layout:
 
 ```text
-robocert/
-├── AGENTS.md
-├── README.md
-├── pyproject.toml
-├── docs/
-│   ├── mathematics/
-│   ├── architecture/
-│   ├── certificates/
-│   ├── geometry/
-│   ├── assumptions/
-│   └── benchmarks/
-├── schemas/
-│   ├── project.schema.json
-│   ├── claim.schema.json
-│   ├── result.schema.json
-│   └── certificate.schema.json
-├── src/
-│   └── robocert/
-│       ├── model/
-│       ├── geometry/
-│       ├── kinematics/
-│       ├── algebra/
-│       ├── specification/
-│       ├── search/
-│       ├── optimization/
-│       ├── certification/
-│       │   ├── exact/
-│       │   ├── qe/
-│       │   ├── sos/
-│       │   ├── interval/
-│       │   └── cspace/
-│       ├── checking/
-│       ├── diagnostics/
-│       ├── provenance/
-│       └── reporting/
+RoboCert/
+├── AGENTS.md                      # this policy, canonical for every agent
+├── .claude/  .codex/  .agents/    # Claude and Codex entry points, agents, skills, hooks
+├── README.md  ROADMAP.md
+├── pyproject.toml                 # runtime `dependencies` empty by policy
+├── src/robocert/                  # runtime package: flat modules, layer map in §20
+│   └── simulation/                # optional, untrusted falsification layer
+├── schemas/                       # versioned JSON schemas
 ├── tests/
-│   ├── unit/
-│   ├── property/
-│   ├── regression/
-│   ├── adversarial/
-│   └── certificate/
-├── benchmarks/
-│   ├── planar_2r/
-│   ├── planar_3r/
-│   ├── spatial_3dof/
-│   ├── industrial_6dof/
-│   └── robust_7dof/
-├── certificates/
-└── formal/                  # Lean 4; proof-time only, not a runtime component
+├── scripts/                       # CI checks and ledger/report hooks (§76.6)
+├── examples/
+├── benchmarks/proof-verification/ # frozen, hash-validated referee runs
+├── research/                      # evidence ledger (§76)
+├── docs/                          # architecture, concepts, methodology, strategy, archive
+└── formal/                        # Lean 4, Rocq, Isabelle/HOL; proof-time only
 ```
+
+The nested package layout proposed earlier (`model/`, `geometry/`, `algebra/`, `certification/`, `checking/`, and so on) remains a possible future split. When a module grows into a subpackage, it follows the §20 layer rules.
 
 `formal/` is the one non-Python subtree. It contains kernel-checkable soundness proofs about
 checker MODELS and is governed by `formal/AGENTS.md`. It is proof-time only: it never
@@ -1337,6 +1352,17 @@ checking
 ```
 
 should be treated as architectural defects.
+
+Current mapping of these logical layers to modules (approximate; each module's docstring is authoritative):
+
+| Layer | Current modules |
+|---|---|
+| specification and provenance | `specification.py`, `artifacts.py`, `schemas.py`, `errors.py`, `kinematics2r.py` (claim construction), `problem2r.py` (historical input format) |
+| search (untrusted) | `witness_search2r.py`, `simulation/` |
+| certification (candidate construction) | `certificates.py`; `certify2r.py` is a historical research driver |
+| checking (trusted boundary) | `checking.py`, `checkers.py`, `polynomial.py`, `linalg_exact.py`, `sos.py`, `refutation.py`, `attestation.py` |
+| results and reporting | `results.py` (status semantics), `cli.py` (closed public gate) |
+| optimization | not yet present |
 
 ---
 
@@ -1628,6 +1654,8 @@ Include:
 # 25. Benchmark Policy
 
 Initial benchmarks SHOULD include analytically understandable systems.
+
+> **Current status.** Only Benchmark A is in current scope (`ROADMAP.md`, G1–G4). Benchmarks B–E remain the intended progression but are deferred or outside the current plan per `ROADMAP.md`.
 
 ## Benchmark A — planar 2R
 
@@ -2548,6 +2576,8 @@ Do not cite a paper merely because it contains similar terminology.
 
 # 68. First Mathematical Milestone
 
+> **Current status.** `ROADMAP.md` is the working plan. The first family actually being gated is the existential, principal-chart planar-2R pose-tolerance witness, without uncertainty (`docs/architecture/phase1-pose-tolerance-mvp-gates.md`). The statement below remains the long-term target (`docs/concepts/certification-goals.md`), and its completion criteria still apply to it.
+
 The first complete theorem-level milestone SHOULD be a planar 2R robot with:
 
 - interval link-length tolerances;
@@ -2581,20 +2611,9 @@ The milestone is complete only when:
 
 # 69. Research Roadmap Priorities
 
-Prioritize in this order:
+Follow the gate order in `ROADMAP.md` (G0–G5). Each gate states its pass condition and its stop or failure record, and reordering the roadmap changes no evidence tier.
 
-1. formal claim semantics;
-2. exact 2R/3R benchmarks;
-3. certificate schema;
-4. checker architecture;
-5. interval verification;
-6. exact algebra/QE;
-7. SOS/SDP certificate reconstruction;
-8. C-space collision certification;
-9. robust tolerance handling;
-10. industrial CAD ingestion;
-11. multi-agent orchestration;
-12. dynamics and control extensions.
+The original priority order, kept for context: formal claim semantics; exact 2R/3R benchmarks; certificate schema; checker architecture; interval verification; exact algebra/QE; SOS/SDP certificate reconstruction; C-space collision certification; robust tolerance handling; industrial CAD ingestion; multi-agent orchestration; dynamics and control extensions.
 
 Do not invert this order solely to build a more impressive UI.
 
@@ -2680,7 +2699,13 @@ Do not fabricate a theorem to avoid an inconclusive result.
 
 Subdirectories may define specialized rules.
 
-Recommended:
+Existing nested policy:
+
+- `formal/AGENTS.md`: Lean, Rocq, Isabelle/HOL, and `src/robocert/attestation.py`; stricter throughout.
+
+Per §3, a nested file MAY strengthen and MUST NOT weaken the root rules.
+
+Candidates, once the corresponding subpackages exist (§19):
 
 ```text
 src/robocert/algebra/AGENTS.md
@@ -2749,3 +2774,41 @@ and:
 \]
 
 Every agent in this repository is responsible for preserving that distinction.
+
+---
+
+# 76. Research Ledger Discipline
+
+`research/CLAIMS.md` is the evidence ledger for research and design claims. `research/README.md` defines the evidence tiers (E0–E4, EX) and MUST be read before editing anything under `research/`.
+
+These rules apply to every agent and provider. They were previously listed in `.claude/CLAUDE.md` as rules #1–#5, and the numbering is kept: rule #n there is §76.n here.
+
+## 76.1 New claims enter at E0
+
+Every new research or design claim enters `research/CLAIMS.md` at `E0`. No agent may self-assign a higher tier, no matter how confident the argument looks.
+
+## 76.2 No self-refereeing
+
+A context that produced a research or soundness argument MUST NOT referee it. Promoting a claim from `E1` to `E2` always goes through the `referee` skill (`.claude/skills/referee/`, `.agents/skills/referee/`), which dispatches `referee-hostile` and `referee-naive` (`.claude/agents/`, `.codex/agents/`) as fresh subagents with no memory of how the argument was constructed.
+
+## 76.3 Failed attempts are logged with a diagnosis
+
+A failed attempt is logged in `research/ATTEMPTS.md` with a diagnosed failure point, via the `log-attempt` skill. "This didn't work" is not a diagnosis.
+
+## 76.4 No citation without a literature entry
+
+Never state a literature claim without a `research/literature/LIT-xxx.md` entry created via the `cite` skill in the same session. A recalled citation with no entry is not a citation. This strengthens §67.
+
+## 76.5 Adversaries search blind
+
+The `adversary` agent and whatever produced the proof or algorithm it attacks MUST never share context. If the searcher knows what the answer is supposed to be, its search stops being honest.
+
+## 76.6 Enforcement
+
+The same hooks run for both providers (`.claude/settings.json`, `.codex/hooks.json`), and CI runs the two checks as well:
+
+- `scripts/check_ledger.py` checks every edit to `research/CLAIMS.md`: monotonicity, DAG acyclicity, orphan references, the referee gate, and the history gate.
+- `scripts/check_report_language.py` blocks overclaiming language in `research/reports/` that lacks a qualifying `E2`+ citation (§36, §66).
+- `scripts/session_ledger_reminder.py` prints a non-blocking ledger summary when a session stops.
+
+The blocking hooks cannot be argued around, by design. A hook failure is fixed, not bypassed.

@@ -1,38 +1,34 @@
 # RoboCert — Claude Code entry point
 
 Read [`AGENTS.md`](../AGENTS.md) in full before any task. It is RoboCert's canonical
-engineering and soundness policy (75 sections: TCB rules, quantifier discipline,
-result semantics, coding standards, citation policy, claim-wording rules,
-overclaiming rules, testing requirements). Nothing below overrides it.
+engineering and soundness policy for every agent and provider (§0–§76: TCB rules,
+quantifier discipline, result semantics, coding standards, citation and claim-wording
+rules, testing requirements, research-ledger discipline). Start with its reading guide:
+the core rules at a glance and the topic index. Nothing below overrides it.
 
 Read [`research/README.md`](../research/README.md) before touching anything under
-`research/` — it defines the evidence tiers and the ledger discipline referenced
-below.
+`research/`. It defines the evidence tiers and the ledger discipline.
 
-## Non-negotiables specific to the research ledger
+## Research ledger
 
-These don't already live in `AGENTS.md`; everything else does.
+The ledger rules live in `AGENTS.md` §76, so Claude and Codex follow the same text.
+They used to be numbered here, and earlier citations of "`.claude/CLAUDE.md` #n" mean
+§76.n:
 
-1. Every new research/design claim enters `research/CLAIMS.md` at `E0`. You may not
-   self-assign a higher tier, no matter how confident the argument looks.
-2. A context that produced a research/soundness argument may never referee it.
-   Promoting a claim from `E1` to `E2` always goes through the `referee` skill,
-   which dispatches `referee-hostile` and `referee-naive` as fresh subagents with no
-   memory of how the argument was constructed.
-3. A failed attempt is logged in `research/ATTEMPTS.md` with a diagnosed failure
-   point via the `log-attempt` skill. "This didn't work" is not a diagnosis.
-4. Never state a literature claim without a `research/literature/LIT-xxx.md` entry
-   created via the `cite` skill in the same session — a recalled citation with no
-   entry is not a citation.
-5. The `adversary` subagent and whatever produced the proof/algorithm it's attacking
-   must never share context. If the searcher knows what the answer is supposed to
-   be, its search stops being honest.
+1. New research/design claims enter `research/CLAIMS.md` at `E0` (§76.1).
+2. No self-refereeing; `E1` to `E2` only via the `referee` skill (§76.2).
+3. Failed attempts go in `research/ATTEMPTS.md` with a diagnosis, via `log-attempt` (§76.3).
+4. No literature claim without a `cite`-created `LIT-xxx` entry (§76.4).
+5. The `adversary` never shares context with what it attacks (§76.5).
 
-`research/CLAIMS.md` edits are checked automatically by `scripts/check_ledger.py`
-(monotonicity, DAG acyclicity, orphan references, referee gate, history gate).
-`research/reports/` writes are checked by `scripts/check_report_language.py`
-(blocks overclaiming language without a qualifying `E2`+ citation). Both run as
-hooks (`.claude/settings.json`) — they cannot be argued around, by design.
+## Claude-specific wiring
+
+- Skills: `.claude/skills/` (`cite`, `isolate-steps`, `log-attempt`, `referee`).
+- Subagents: `.claude/agents/` (`adversary`, `lit-extractor`, `referee-hostile`,
+  `referee-naive`).
+- Hooks: `.claude/settings.json` runs `scripts/check_report_language.py` before edits,
+  `scripts/check_ledger.py` after edits, and `scripts/session_ledger_reminder.py` at stop
+  (§76.6). They cannot be argued around, by design.
 
 ## Everything else
 

@@ -52,12 +52,12 @@ Files whose digests are pinned in `formal/attestations/` must not be edited casu
 
 ## Ledger and report hooks
 
-`.claude/settings.json` runs:
+`.claude/settings.json` and `.codex/hooks.json` run the same hooks:
 
 - `scripts/check_ledger.py` after every edit. It checks monotonicity, the dependency DAG, orphan references, the referee gate, and the history gate on `research/CLAIMS.md`.
 - `scripts/check_report_language.py` before every edit. It blocks overclaiming language in `research/reports/` unless an E2-or-higher claim backs it.
 
-The hooks are designed not to be bypassed. Tier rules are in [`research/README.md`](../research/README.md).
+The hooks are designed not to be bypassed. The rules they enforce are in [`AGENTS.md`](../AGENTS.md) §76; tier rules are in [`research/README.md`](../research/README.md).
 
 ## Frozen artifacts
 
