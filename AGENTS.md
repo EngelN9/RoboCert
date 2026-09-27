@@ -4,35 +4,38 @@
 >
 > **Normative status:** this file defines repository-wide operating rules unless a more specific `AGENTS.md` in a subdirectory explicitly strengthens them.
 >
-> **Entry points:** `.claude/CLAUDE.md` (Claude Code) and the Codex configuration under `.codex/` and `.agents/` point here and defer to this file. It is the single policy text shared by every agent and provider.
+> **Entry points:** Codex reads this file directly; `.claude/CLAUDE.md` imports it for Claude Code. It is the single policy text shared by every agent and provider.
 >
 > **Project:** RoboCert — mathematical certification of robotic reachability, collision freedom, singularity separation, and feasibility under geometric and manufacturing uncertainty.
+>
+> **Policy, not capability:** this file states rules and long-term aims. What is implemented today, and the fact that the production checker registry is empty, is recorded in [`README.md`](README.md) ("Status at a glance") and [`research/CLAIMS.md`](research/CLAIMS.md).
 
 ---
 
 # Reading Guide (non-normative)
 
-This guide summarizes and indexes the policy. The numbered sections are normative; where this guide and a section disagree, the section wins.
+This guide only points into the policy; it restates no rule. The numbered sections are normative.
 
 Section numbers are stable. The research ledger, reports, tests, scripts, and agent definitions cite them (for example `AGENTS.md` §67), so sections are never renumbered: new policy is appended as a new section.
 
-## Core rules at a glance
+Every task: §0, §4, and §75.
 
-1. Search may be heuristic; certification may not. Keep candidate, numerical validation, certificate, and independent check distinct. (§0)
-2. Only a checker-accepted certificate yields `CERTIFIED_*`. When in doubt, return `UNKNOWN`. (§4.1, §15)
-3. Failure to prove is not proof of failure. (§4.2)
-4. A small residual is not an equality proof, and sampling is not universal quantification. (§4.3, §4.4)
-5. LLM output is never a proof certificate. (§4.5)
-6. Every geometry approximation states its direction, outer or inner. (§4.6, §49)
-7. The quantifier prefix is part of the theorem; never reorder quantifiers silently. (§1, §6)
-8. Solvers propose; small deterministic checkers decide, on a different implementation path where practical. (§14.1, §53, §57)
-9. Certificates depend only on serialized, hash-bound artifacts, never on hidden solver state. (§14.3, §54)
-10. Explicit types, units, exact arithmetic, and determinism in the trusted path. (§22)
-11. Tests, including corruption and adversarial tests, before a task counts as complete. (§24, §71)
-12. Qualify every strong word; never overclaim. (§36, §66)
-13. Any mandatory stop condition halts promotion to certified status. (§72)
-14. Research claims go through the ledger: enter at E0, no self-refereeing, diagnosed failures, verified citations, blind adversaries. (§67, §76)
-15. A nested `AGENTS.md` may only strengthen these rules. (§3, §74)
+## Start here, by task
+
+| If you are… | Read |
+|---|---|
+| changing any code under `src/robocert` | §19–§24 |
+| changing checker or other trusted-path code (`checking.py`, `checkers.py`, `attestation.py`, exact algebra) | §14, §18, §20, §22, §38, §53, §54 |
+| proposing a certificate family or registering a checker | §14, §24, §52–§54, §72; `docs/architecture/trusted-computing-base.md` |
+| writing search, solver, or simulation code | §20, §27, §57, §58 |
+| stating or changing a claim (quantifiers, domains, tolerances) | §5, §6, §13.3, §45–§50, §59, §60 |
+| working in `research/` (claims, attempts, citations, refereeing) | §67, §76; `research/README.md` |
+| writing a report, README, or other documentation | §33–§36, §65, §66 |
+| adding or changing tests | §24, §26, §31, §71 |
+| working in `formal/` | §14; `formal/AGENTS.md` |
+| touching result statuses or the CLI | §15, §29, §31, §50 |
+| choosing what to work on next | §69 and `ROADMAP.md` |
+| reviewing or opening a pull request | §37, §38 |
 
 ## Topic index
 
@@ -1034,7 +1037,7 @@ RoboCert may use multiple specialized agents.
 
 Agents MUST remain within their role boundaries.
 
-> **Current status.** The ten roles below are a design vocabulary for a future orchestration layer; none is implemented as an agent. The agents that exist are review and search agents defined for both providers (`.claude/agents/`, `.codex/agents/`): `adversary`, `referee-hostile`, `referee-naive`, and `lit-extractor`. Their separation rules are in §76. The boundaries below still apply to any agent or person doing one of these jobs.
+> **Current status.** The ten roles below are a design vocabulary for a future orchestration layer; none is implemented as an agent. The agents that exist are review and search agents defined for both providers (`.claude/agents/`, `.codex/agents/`): `adversary`, `referee-hostile`, `referee-naive`, and `lit-extractor`. Codex also has a `certificate-soundness-audit` skill (`.agents/skills/`). Their separation rules are in §76. The boundaries below still apply to any agent or person doing one of these jobs.
 
 ---
 
@@ -1360,7 +1363,9 @@ Current mapping of these logical layers to modules (approximate; each module's d
 | specification and provenance | `specification.py`, `artifacts.py`, `schemas.py`, `errors.py`, `kinematics2r.py` (claim construction), `problem2r.py` (historical input format) |
 | search (untrusted) | `witness_search2r.py`, `simulation/` |
 | certification (candidate construction) | `certificates.py`; `certify2r.py` is a historical research driver |
-| checking (trusted boundary) | `checking.py`, `checkers.py`, `polynomial.py`, `linalg_exact.py`, `sos.py`, `refutation.py`, `attestation.py` |
+| checking (trusted boundary) | `checking.py` (fail-closed gate; production registry empty), `checkers.py` (research checkers, none registered), `attestation.py` (veto-only) |
+| exact algebra used by checkers | `polynomial.py`, `linalg_exact.py`, `sos.py` (verification utility bound to no certificate family; RC-006) |
+| refutation | `refutation.py`: library API, not a `Checker`, not wired into the CLI or reports (RC-007) |
 | results and reporting | `results.py` (status semantics), `cli.py` (closed public gate) |
 | optimization | not yet present |
 
@@ -1655,7 +1660,7 @@ Include:
 
 Initial benchmarks SHOULD include analytically understandable systems.
 
-> **Current status.** Only Benchmark A is in current scope (`ROADMAP.md`, G1–G4). Benchmarks B–E remain the intended progression but are deferred or outside the current plan per `ROADMAP.md`.
+> **Current status.** `ROADMAP.md` gates G1–G4 concern Benchmark A (planar 2R). G5, the exact recheck of third-party configuration-space certificates, is not a benchmark. Benchmarks B–E remain the intended progression and correspond to the roadmap's "Deferred" list.
 
 ## Benchmark A — planar 2R
 
@@ -2789,7 +2794,7 @@ Every new research or design claim enters `research/CLAIMS.md` at `E0`. No agent
 
 ## 76.2 No self-refereeing
 
-A context that produced a research or soundness argument MUST NOT referee it. Promoting a claim from `E1` to `E2` always goes through the `referee` skill (`.claude/skills/referee/`, `.agents/skills/referee/`), which dispatches `referee-hostile` and `referee-naive` (`.claude/agents/`, `.codex/agents/`) as fresh subagents with no memory of how the argument was constructed.
+A context that produced a research or soundness argument MUST NOT referee it. Promoting a claim from `E1` to `E2` always goes through the `referee` skill (`.claude/skills/referee/`, `.agents/skills/referee/`), which dispatches `referee-hostile` and `referee-naive` (`.claude/agents/`, `.codex/agents/`) as fresh subagents with no memory of how the argument was constructed. Cross-provider runs additionally follow the frozen protocol and hand-off boundaries under `benchmarks/proof-verification/`.
 
 ## 76.3 Failed attempts are logged with a diagnosis
 

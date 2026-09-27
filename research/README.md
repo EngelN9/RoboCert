@@ -116,15 +116,9 @@ research/
 
 ## Rules
 
-1. A context that produced a research/soundness argument may never referee it.
-   `E1` → `E2` promotion always goes through a fresh subagent
-   (Codex `.codex/agents/referee-hostile.toml` / `referee-naive.toml` and Claude
-   `.claude/agents/referee-hostile.md` / `referee-naive.md`, via the `referee`
-   skill). Cross-provider runs must additionally follow the frozen protocol and
-   handoff boundaries under `benchmarks/proof-verification/`.
-2. The `adversary` agent and the agent constructing a proof/soundness argument must
-   never share context. If the searcher knows what the answer is supposed to be, its
-   search stops being honest.
+1. No self-refereeing; `E1` → `E2` only through fresh referee subagents: `AGENTS.md` §76.2.
+2. The `adversary` and whatever produced the argument it attacks never share context:
+   `AGENTS.md` §76.5.
 3. Tiers change only by appending a `history:` line in the same edit that changes
    `tier:` in `CLAIMS.md`. Reaching `E2` or above additionally requires a non-`none`
    `referee:` field. Both are enforced by `scripts/check_ledger.py`.
