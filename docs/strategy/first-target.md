@@ -269,7 +269,7 @@ Question: for one realistic instance D, does the integrator's requirement (ε_re
 **Rules.**
 
 - Stop after fixing inputs and get approval before computing. Invented numbers presented as real are the largest risk in this step.
-- Reuse RC-002's encoding and witness polynomials; add only what the test needs.
+- Reuse only RC-002's exact pointwise half-angle and FK algebra where its hypotheses match. Do not reuse its second-link clearance conjunct or checker as proof of this robust actual-link claim.
 - No floating point in any step the result depends on.
 
 **Formal decision.** For a fixed branch b, the feasible set is
@@ -289,9 +289,9 @@ Two kinds of exact evidence locate the requirement:
 
 | Outcome | Formal condition at (ε_req, μ_req) | Reading | Action |
 |----------------|------------------------------|------------------------------|--------------------------|
-| Proceed | Inner evidence | The distinctive claim is real for this D | Proceed to G2 |
+| Candidate to proceed | Inner evidence | The proposed model claim holds for this D, subject to the checker soundness gate | Bring it to the owner checkpoint; no automatic G2 |
 | Unresolved | Neither inner nor outer evidence | The reason is unknown; no failure mode has been established | Diagnose before deciding whether to tighten or stop |
-| Fallback | Outer evidence for both branches | Claim (U) provably fails for this D | Take the fallback |
+| Candidate fallback | Outer evidence for both branches | Claim (U) is refuted for this D under the stated model | Bring it to the owner checkpoint; no automatic fallback |
 
 The fallback row would require an exact, in-domain counterexample for both branches; no such result exists yet. Do not call a computed ε or μ certified without checked supporting evidence.
 
