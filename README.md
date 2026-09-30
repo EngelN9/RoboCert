@@ -31,12 +31,12 @@ The table is a snapshot as of 2026-09-24. [`research/CLAIMS.md`](research/CLAIMS
 
 | Claim | Subject | Tier | Next open obligation |
 |---|---|---|---|
-| RC-001 | SOS scheme for a robust planar-2R singularity margin | E0 | No soundness argument yet; statement to be made precise |
-| RC-002 | Planar-2R exact-witness encoding | E1 | Owner read of the corrigendum, then a fresh frozen referee run (RUN001 failed) |
+| RC-001 | Proposed SOS certificate scheme for a planar-2R singularity margin under interval link-length uncertainty | E0 | Unreviewed E0 sketch only; statement to be made precise (roadmap G2) |
+| RC-002 | Planar-2R exact rational witness encoding for one fixed instance | E1 | Owner read of the corrigendum, then a fresh frozen referee run (RUN001 stopped with substantive findings and cannot be reused; A-002) |
 | RC-003 | One-inequality pose tolerance | EX | Refuted (`research/ATTEMPTS.md` A-001); never to be reused |
 | RC-004 | Inward joint-limit rounding | E0 | Owner read of the correspondence argument |
 | RC-005 | Actual-endpoint pose-tolerance witness | E0 | Owner read; its E2 is capped by RC-002 |
-| RC-006 | Exact SOS verifier correspondence | E0 | Owner read of the correspondence argument |
+| RC-006 | Exact rational SOS verifier correspondence | E0 | Owner read of the correspondence argument |
 | RC-007 | `refute` correspondence | E0 | Owner read; CLI and report gate stays closed until E1 |
 
 Cross-cutting obligations before any production checker:
@@ -45,17 +45,17 @@ Cross-cutting obligations before any production checker:
 - the full [certificate-family obligation](docs/architecture/trusted-computing-base.md#future-certificate-family-obligation), including one adversarial *human* review;
 - closing the attestation-binding gap: the Lean attestation does not hash `Semantics.lean`, the file that fixes what its theorem means.
 
-The [MVP gate record](docs/architecture/phase1-pose-tolerance-mvp-gates.md) lists the gates for the first proposed family.
+The [MVP gate record](docs/architecture/phase1-pose-tolerance-mvp-gates.md) lists the gates for the proposed pose-tolerance family (RC-005).
 
 ## Direction (proposals, not capabilities)
 
 The [roadmap](ROADMAP.md) orders the research work. Its order sets priority; it is not evidence and changes no tier.
 
-1. Close the existing planar-2R evidence gates, and review the exact-algebra primitives that later work shares.
-2. Specify a checkable robust singularity-margin family (RC-001).
-3. Study tolerance-form planar witnesses and an explicit uncertainty-inflation bound.
+1. Close the existing planar-2R evidence gates, and review the rational polynomial, PSD, and SOS primitives that later work shares.
+2. Specify a checkable singularity-margin family under interval link-length uncertainty (RC-001).
+3. State an explicit uncertainty-inflation bound that uses RC-005-style actual-link clearance and outward joint-box enclosures.
 4. Measure whether a precision SCARA-style planar slice keeps useful margins.
-5. Test whether third-party configuration-space certificates can be exported and rechecked exactly.
+5. Test whether third-party configuration-space certificates can be exported for independent rational-arithmetic recheck.
 
 Spatial arms, paths, dynamics, and clinical or industrial safety assurances are later or out of scope. The [strategy note](docs/strategy/revised-direction.md) records the rationale, the gates, and what remains unverified.
 
@@ -75,6 +75,8 @@ python -m venv .venv
 .venv/bin/python -m pytest
 ```
 
+On POSIX systems without a `python` command, use `python3 -m venv .venv` for the first line.
+
 The [development guide](docs/development.md) lists the full set of CI checks. The [examples](examples/README.md) show the closed public gate and the research-only simulation outcomes.
 
 ## Documentation
@@ -92,6 +94,6 @@ The [development guide](docs/development.md) lists the full set of CI checks. Th
 | [formal/README.md](formal/README.md) | Scope of the proof-assistant developments |
 | [docs/SESSION_HANDOFF.md](docs/SESSION_HANDOFF.md) | Current continuation record |
 | [AGENTS.md](AGENTS.md) | Canonical engineering and soundness policy |
-| [docs/archive/](docs/archive/initial-project-overview.md) | The original overview and phased roadmap, historical only |
+| [overview](docs/archive/initial-project-overview.md) and [phased roadmap](docs/archive/initial-phased-roadmap.md) | The original overview and phased roadmap, historical only |
 
 Licensed under [Apache-2.0](LICENSE). RoboCert does not establish the safety of a physical robot, medical device, or deployment.
