@@ -10,11 +10,11 @@ A precision assembly integrator, or an in-house automation engineer, fixing fixt
 
 The decision they make: commit to this layout, or move the feeder.
 
-The fit comes from three features of this buyer. The cell runs unchanged for years, so a slow certificate on fixed geometry is worth producing. Clearances are millimetres and repeatability is on the order of ±0.01–0.02 mm, so near-singular behaviour and tolerance stack-up actually bite. And it is the only candidate where reachability, singularity margin and robustness to tolerance are all load-bearing at once.
+The proposed fit is a cell with fixed geometry where a checkable layout argument could remain useful. Actual clearances, repeatability, calibration error, and demand for such an artifact must be established from a named instance and integrator input; no representative numbers are assumed here.
 
 ## 2. The claim, in plain words
 
-For link lengths within tolerance, every target point is reachable on one elbow branch with a guaranteed distance from singularity and a guaranteed clearance from obstacles — verified in exact rational arithmetic and independently recheckable.
+The proposed claim asks whether, for link lengths within tolerance, every target point is reachable on one elbow branch with specified singularity and obstacle-clearance margins. An exact, independently recheckable certificate is an objective, not an existing result.
 
 It is design justification for a planar kinematic model, not a safety case and not a motion guarantee. Section 3 makes every term precise, states the claim with explicit quantifiers, and lists what it does not assert.
 
@@ -24,12 +24,12 @@ The claim is a first-order statement over ℝ with rational data, and the recomm
 
 ### 3.1 Model and data
 
-All data are rational. A problem instance is the tuple D = (L̄, δ, Q, P, ρ, O, r).
+All serialized data are rational; quantified lengths and target coordinates range over real sets with rational descriptions. The base, link-length-only instance is D = (L̄, δ, Q, P, ρ, O, r). The proposed O3 zero-offset extension is recorded in [modelling choices](modelling-choices.md); it changes this schema and its quantifier prefix and is not silently part of D.
 
 **Link lengths.** L = (L₁, L₂) ranges over the tolerance box
 
 $$
-\Delta = [\bar L_1 - \delta_1,\ \bar L_1 + \delta_1] \times [\bar L_2 - \delta_2,\ \bar L_2 + \delta_2] \subset \mathbb{Q}^2_{>0}
+\Delta = [\bar L_1 - \delta_1,\ \bar L_1 + \delta_1] \times [\bar L_2 - \delta_2,\ \bar L_2 + \delta_2] \subset \mathbb{R}^2_{>0}
 $$
 
 **Joint domain.** Q = [q₁⁻, q₁⁺] × [q₂⁻, q₂⁺] ⊂ (−π, π)².
@@ -121,7 +121,7 @@ $$
 
 *Proof.* (⇐) The linear conditions extend to all convex combinations, so a · (o − s) ≥ η for every s ∈ S and o ∈ O_j, and a · (o − s) ≤ ‖a‖ ‖o − s‖ ≤ ‖o − s‖. (⇒) Take a closest pair (s\*, o\*), set a = (o\* − s\*) / ‖o\* − s\*‖ and b = a · s\*; the separating hyperplane theorem for disjoint compact convex sets gives the conditions with margin ‖o\* − s\*‖ ≥ η. ∎
 
-Why this form: the endpoints s_i are rational functions of (L, t), the conditions are polynomial after clearing positive denominators, and no square root appears. When a and b are allowed to depend on (L, t) this is the parametric separating-hyperplane certificate that C-IRIS uses for collision-freeness [[2]](#sources); the relaxation ‖a‖² ≤ 1 instead of ‖a‖ = 1 is sound and loses nothing.
+Why this form: the endpoints s_i are rational functions of (L, t), the conditions are polynomial after clearing positive denominators, and no square root appears. Parametric separation is relevant to the [C-Iris method recorded as LIT-001](../../research/literature/LIT-001.md); translating any of its guarantees to this proposed domain remains a separate obligation. The relaxation ‖a‖² ≤ 1 instead of ‖a‖ = 1 is sound and loses nothing in Proposition 3.
 
 ### 3.4 The claim, formally
 
@@ -153,20 +153,20 @@ By Lemmas 2 and 4, the witness q in (U) is unique for each (L, x), so (U) is equ
 
 **Proposition 5 (why U, not P).** (U) implies (P); the converse fails in general. Moreover, any continuous curve in Q joining a point of Q₊₁ to a point of Q₋₁ contains a configuration with σ_B = 0.
 
-*Proof.* The implication is immediate. For the second part, sin q₂ is continuous along the curve and changes sign, so it vanishes somewhere by the intermediate value theorem. ∎
+*Proof.* The implication is immediate. For a counterexample to the converse, take L₁ = L₂ = 1, δ = ρ = r = 0, P = {(1, 1), (1, −1)}, ε = μ = 1/2, q₁ ∈ [−2 arctan(1/2), 2 arctan(1/2)], q₂ ∈ [−π/2, π/2], and O = [10, 11]². The two targets have admissible solutions (q₁, q₂) = (0, π/2) and (0, −π/2), respectively. Their opposite-branch solutions require q₁ = π/2 and q₁ = −π/2, outside Q. The arm stays inside the radius-2 disc, so the obstacle clears it by more than μ. Thus (P) holds but neither uniform branch works. For the final statement, sin q₂ is continuous along a path changing branch sign, so it vanishes somewhere by the intermediate value theorem. ∎
 
 Proposition 5 is a fact about the configuration space, not a motion claim. Its practical reading: under (P), a certified cell may still need the arm to change elbow branch between two targets, and every such change passes through a singular configuration. (U) rules that out, which is why it is the recommended form for layout sign-off.
 
-**Status.** For every concrete instance D, whether (U) holds is unknown. It is an E0 claim schema, not a theorem.
+**Status.** No concrete instance is certified here. This is an E0 claim schema, not an established theorem or a production result.
 
 ### 3.5 Certificate and checker
 
-Write Φ_D(ε, μ) for Claim (U) with the branch b fixed. By §§3.1–3.3, Φ_D is a first-order formula over the reals with rational coefficients, of the form ∀(L, x) ∃q. It is decidable in principle by quantifier elimination, but that route is far too expensive to serve as a checker, so the claim is carried by a certificate instead.
+Write Φ_D(ε, μ) for Claim (U) with the branch b fixed. By §§3.1–3.3, Φ_D is a first-order formula over the reals with rational coefficients, of the form ∀(L, x) ∃q. Quantifier elimination establishes decidability in principle, but no checker or complete certificate format for this claim exists here.
 
-**Certificate.** A finite object C = (b, (K_i, w_i) for i = 1, …, N), where:
+**Candidate certificate sketch, not a complete format.** A possible finite object is C = (b, (K_i, w_i) for i = 1, …, N), where:
 
-- the cells K_i are rational boxes whose union covers the quantified domain;
-- each witness w_i establishes on K_i the three conditions of Adm_D — the annulus inequality of Lemma 2, the joint limits, and the separating-line conditions of Proposition 3 with (a, b) allowed to be polynomial in the cell variables;
+- the cells K_i are rational parameter cells with an exact proof that their domain-restricted union covers Δ × R, including every curved disc boundary;
+- each witness w_i must establish, on its cell, exact FK equality, the common branch sign, commanded joint limits, the singularity margin, and all actual-link separating-line conditions;
 - each inequality p ≥ 0 on a cell is carried by a polynomial identity with rational coefficients, for instance
 
 $$
@@ -175,11 +175,11 @@ $$
 
 where the g_k ≥ 0 describe the cell and the z_k are monomial vectors.
 
-**Checker.** A procedure Check(D, C) ∈ {accept, reject} using integer and rational arithmetic only:
+**Proposed checker obligations.** A future procedure Check(D, C) ∈ {accept, reject}, using exact arithmetic only, would need at least:
 
-1. **Cover.** The cells cover the domain, by exact rational comparisons.
-2. **Identities.** Every polynomial identity holds coefficient by coefficient in the rational polynomial ring.
-3. **Positivity.** Every G_k is positive semidefinite, decided by exact rational LDLᵀ elimination.
+1. **Cover.** Check exact coverage of the declared semialgebraic parameter domain, not merely a box containing it.
+2. **Witness.** Isolate algebraic IK roots, check the chosen branch, denominator signs, FK identities, and all quantified witness dependencies.
+3. **Identities and positivity.** Check every identity in the appropriate rational or algebraic quotient ring, every domain condition and separator, and every exact PSD obligation, including zero-pivot cases.
 
 **Soundness requirement.**
 
@@ -187,11 +187,11 @@ $$
 \mathrm{Check}(D, C) = \mathrm{accept} \;\Longrightarrow\; \Phi_D(\varepsilon, \mu)
 $$
 
-Soundness is a theorem about the checker and the certificate format, proved once, not per instance.
+This implication is an **unresolved proof obligation**, not a theorem established by this document. The O5 witness construction and its implementation correspondence remain open.
 
-**Why this is exact.** D and C are finite sets of rationals, and each step is a finite rational computation with no rounding, so any independent implementation reaches the same verdict. This is the practice already used for exact SOS results, where a standalone program reads only archived certificates and decides positive semidefiniteness by exact rational elimination [[6]](#sources); numerical Gram matrices are turned into rational ones by rounding and projection [[5]](#sources).
+**Exactness requirement.** Rational input data do not make the proposed IK witnesses rational. The checker must use an exact algebraic representation and establish root selection, signs, identities, coverage, and PSD without trusting numerical reconstruction. RoboCert has an unregistered exact SOS utility ([RC-006](../../research/CLAIMS.md#rc-006)); that utility does not check this proposed certificate family.
 
-**What the checker does not establish.** Hypothesis H2; completeness, since reject does not mean Φ_D is false; and nothing in §3.6. How the existential ∃q is discharged is left open as O5 in §3.7.
+**What the checker would not establish.** Hypothesis H2; completeness, since rejection would not mean Φ_D is false; and nothing in §3.6. [O5](modelling-choices.md#o5-concrete-proposal) sketches how to discharge ∃q, but that construction has not been proved or checked.
 
 ### 3.6 What the statement does not assert
 
@@ -205,7 +205,7 @@ Soundness is a theorem about the checker and the certificate format, proved once
 
 ### 3.7 Open modelling choices
 
-Each choice changes what the certificate proves; none should be settled silently in code.
+Each choice changes what the certificate proves; none should be settled silently in code. [The O1–O6 planning record](modelling-choices.md) proposes an augmented schema, including O3 and O5. It is not evidence that the claim holds.
 
 | ID | Choice | Options | Recommendation |
 |--------|--------------------|------------------------------------------------|--------------------------------------------------|
@@ -218,15 +218,15 @@ Each choice changes what the certificate proves; none should be settled silently
 
 ## 4. Why this target
 
-No existing method establishes Claim (U): each covers at most one of reachability, margin and robustness.
+This proposal combines reachability, margins, and tolerance semantics not established by RoboCert's current fixed-instance checker. Whether another method already establishes the same claim remains a literature question.
 
 | Method | What it gives | What it leaves open |
 |-------------------------|------------------------------------------------|------------------------------------------------|
 | CAD reach study, offline simulation | Reachability at sampled waypoints, nominal geometry | Behaviour between samples; points that pass reach but are near-singular and fail at commissioning |
-| SCARA layout optimisation | A workpiece position as far as possible from singular configurations [[3]](#sources) | An optimum, not a bound: no statement that every point clears a threshold |
-| C-IRIS | Collision-free C-space regions, rigorously certified, scaling to 7-DOF and 12-DOF bimanual arms [[1]](#sources) | Target reachability, singularity margin, robustness to link-length error; the certificate is nominal and solver-derived |
+| SCARA layout optimisation | A potential comparison to investigate | Whether its published formulation proves a uniform margin is unverified here |
+| C-Iris ([LIT-001](../../research/literature/LIT-001.md)) | Candidate collision-free configuration-space regions under its stated assumptions | Does not by itself establish this proposal's target, margin, and tolerance quantifiers |
 
-Exactness earns its place for two specific reasons. Near a singularity σ_B is close to zero, so a floating-point value is least trustworthy exactly where the decision turns. And SOS methods on double-precision SDP solvers emit approximate nonnegativity certificates [[4]](#sources); a sampled answer cannot tell "no bad point exists" from "no bad point was sampled" [[2]](#sources).
+Exact checking matters at the decision boundary: a sampled or floating-point result does not establish a universal inequality or the exact sign of a small margin. An approximate SOS candidate likewise needs exact reconstruction and checking before it could support this claim.
 
 ## 5. Next steps
 
@@ -234,7 +234,7 @@ Every step narrows scope and ends in something written down; the failure to guar
 
 | # | Step | Done when |
 |-----|------------------------------------------------------------|----------------------------------------|
-| 1 | Make this document the source of truth: commit it as `docs/strategy/first-target.md` | The repo file and this document match; one is named canonical |
+| 1 | Make this reviewed document the planning source of truth | The repository copy is canonical; subsequent corrections remain visible in Git history |
 | 2 | Freeze the roadmap: no G2 work, no RC-002 changes beyond what the kill test needs | Freeze noted in `revised-direction.md` |
 | 3 | Settle the open modelling choices O1–O6 of §3.7 | Each choice recorded, with its reason |
 | 4 | Fix the instance D from one real SCARA datasheet and one real tray footprint | Every input marked datasheet or assumption |
@@ -284,16 +284,16 @@ $$
 
 Two kinds of exact evidence locate the requirement:
 
-- **Inner evidence.** A certificate C with Check(D, C) = accept for Φ_D(ε_in, μ_in), proving (ε_in, μ_in) ∈ F_D.
+- **Inner evidence, conditional.** An accepted certificate from a future checker whose soundness and implementation correspondence have been established would prove (ε_in, μ_in) ∈ F_D.
 - **Outer evidence.** A rational point (L\*, x\*) ∈ Δ × R at which the unique candidate of Lemma 4 in Q_b fails Adm_D(ε_out, μ_out), proving (ε_out, μ_out) ∉ F_D. The candidate's half-angle t₂ lies in a quadratic extension of ℚ, so this check is exact but not purely rational.
 
 | Outcome | Formal condition at (ε_req, μ_req) | Reading | Action |
 |----------------|------------------------------|------------------------------|--------------------------|
 | Proceed | Inner evidence | The distinctive claim is real for this D | Proceed to G2 |
-| Tighten | Neither inner nor outer evidence | Conservatism is the bottleneck, not the concept | Tighten the certificate before G2 |
+| Unresolved | Neither inner nor outer evidence | The reason is unknown; no failure mode has been established | Diagnose before deciding whether to tighten or stop |
 | Fallback | Outer evidence for both branches | Claim (U) provably fails for this D | Take the fallback |
 
-The fallback row is a proof, not a failure of the method. Every reported ε or μ is a certified bound on the frontier of F_D, never the frontier itself.
+The fallback row would require an exact, in-domain counterexample for both branches; no such result exists yet. Do not call a computed ε or μ certified without checked supporting evidence.
 
 ## 7. Side checks
 
@@ -301,7 +301,7 @@ Two cheap checks, each run as its own task so neither leaks into the kill test.
 
 ### 7.1 Demand: does anyone value exactly rechecked certificates?
 
-Partially supported, but only outside robotics. Under DO-178C and DO-333, formal methods can earn certification credit, and a tool whose output is used for credit must be qualified [[7]](#sources). One case study checked a model checker's proof certificates with a qualified proof checker instead of qualifying the tool itself [[8]](#sources). No evidence of demand in robot cell integration was found.
+Demand for a rechecked robotics certificate has not been established. Claims about aviation certification credit or tool qualification need a separate primary-source and regulatory review before use as project evidence.
 
 - **Check:** ask two or three integrators what evidence they hand over at cell acceptance, and whether a reach or singularity claim has ever been disputed after handover.
 - **Weakened by:** no customer ever asking for an analytical artifact; sign-off test-based and schedule-driven.
@@ -309,7 +309,7 @@ Partially supported, but only outside robotics. Under DO-178C and DO-333, formal
 
 ### 7.2 C-IRIS exactness gap
 
-The claim "never re-verified exactly" is too strong. Exact rational rounding of SOS certificates is a known, packaged technique [[5]](#sources), and solver-free exact rechecking from archived certificate files is already practised elsewhere [[6]](#sources). The defensible version: no one appears to have applied it to published robot C-space certificates. That is unconfirmed.
+Whether published robot configuration-space certificates are independently rechecked in exact arithmetic is unverified. Investigate both certificate export and any existing exact or validated recheck before claiming a gap.
 
 - **Check:** read the Drake C-IRIS certificate-verification path; see whether the SDP is wrapped in verified or interval arithmetic. About one afternoon.
 - **Refuted by:** existing rational rounding or verified SDP on C-IRIS separating-hyperplane certificates.
@@ -322,18 +322,19 @@ One decision, taken once both the kill test and the side checks have reported, w
 
 **Out of project scope,** whichever way the checkpoint goes (the claim's own exclusions are in §3.6):
 
-- 6- and 7-DOF planning in cluttered scenes, where C-IRIS already scales.
-- Human-robot collaborative safety, which ISO 10218:2025 governs through power-and-force limiting and speed-and-separation monitoring at application level [[9]](#sources).
+- 6- and 7-DOF planning in cluttered scenes; scaling claims about other tools require separate verification.
+- Human-robot collaborative safety and standards compliance; this model makes neither claim.
 - High-mix cells whose layout changes often enough that a fixed-geometry certificate goes stale.
 
-## Sources
+## Unverified research leads
 
-1. [Certified Polyhedral Decompositions of Collision-Free Configuration Space](https://arxiv.org/pdf/2302.12219) — C-IRIS scope and scaling.
-2. [Finding and Optimizing Certified, Collision-Free Regions in Configuration Space](https://arxiv.org/pdf/2205.03690) — sampling-density limitation; parametric separating hyperplanes.
-3. [Singularity avoidance for SCARA robots](https://www.sciencedirect.com/science/article/abs/pii/092188909290015Q) — layout optimisation against singular configurations.
-4. [Computer-Assisted Proofs for Lyapunov Stability via SOS](https://arxiv.org/html/2006.09884v2) — double-precision SDP yields approximate certificates.
-5. [Sums of squares in Macaulay2](https://arxiv.org/pdf/1812.05475) — rational rounding and projection.
-6. [Explicit Separators for Consecutive Levels of Parrilo's Hierarchy](https://arxiv.org/pdf/2608.27743) — solver-free exact rational verification.
-7. [DO-333 Certification Case Studies](https://loonwerks.com/publications/pdf/cofer2014nfm.pdf) — certification credit and tool qualification.
-8. [Qualification of a Model Checker for Avionics Software Verification](https://link.springer.com/chapter/10.1007/978-3-319-57288-8_29) — proof certificates in lieu of tool qualification.
-9. [ISO 10218:2025 explained](https://theresarobotforthat.com/blog/iso-10218-2025-explained/) — collaborative safety as an application property.
+The links below are leads for later source checks, not verified `LIT-xxx` entries and not evidence for the claim or checker sketch above. [LIT-001](../../research/literature/LIT-001.md) is the sole literature entry used here.
+
+- [Certified Polyhedral Decompositions of Collision-Free Configuration Space](https://arxiv.org/pdf/2302.12219)
+- [Singularity avoidance for SCARA robots](https://www.sciencedirect.com/science/article/abs/pii/092188909290015Q)
+- [Computer-Assisted Proofs for Lyapunov Stability via SOS](https://arxiv.org/html/2006.09884v2)
+- [Sums of squares in Macaulay2](https://arxiv.org/pdf/1812.05475)
+- [Explicit Separators for Consecutive Levels of Parrilo's Hierarchy](https://arxiv.org/pdf/2608.27743)
+- [DO-333 Certification Case Studies](https://loonwerks.com/publications/pdf/cofer2014nfm.pdf)
+- [Qualification of a Model Checker for Avionics Software Verification](https://link.springer.com/chapter/10.1007/978-3-319-57288-8_29)
+- [ISO 10218:2025 explained](https://theresarobotforthat.com/blog/iso-10218-2025-explained/)

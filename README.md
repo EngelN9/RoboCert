@@ -27,7 +27,7 @@ None of the following can produce a `CERTIFIED_*` result.
 
 ## Research claims and open obligations
 
-The table is a snapshot as of 2026-09-24. [`research/CLAIMS.md`](research/CLAIMS.md) is authoritative, and the [evidence tiers](research/README.md) define E0–E4 and EX.
+The table is a snapshot as of 2026-09-30. [`research/CLAIMS.md`](research/CLAIMS.md) is authoritative, and the [evidence tiers](research/README.md) define E0–E4 and EX.
 
 | Claim | Subject | Tier | Next open obligation |
 |---|---|---|---|
@@ -38,6 +38,7 @@ The table is a snapshot as of 2026-09-24. [`research/CLAIMS.md`](research/CLAIMS
 | RC-005 | Actual-endpoint pose-tolerance witness | E0 | Owner read; its E2 is capped by RC-002 |
 | RC-006 | Exact rational SOS verifier correspondence | E0 | Owner read of the correspondence argument |
 | RC-007 | `refute` correspondence | E0 | Owner read; CLI and report gate stays closed until E1 |
+| RC-014 | Proposed uniform-branch planar-2R layout certificate family | E0 | Exact domain coverage, algebraic witness, checker soundness, and owner checkpoint; [first-target strategy](docs/strategy/first-target.md) |
 
 Cross-cutting obligations before any production checker:
 

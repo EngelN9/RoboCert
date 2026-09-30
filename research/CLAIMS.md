@@ -388,3 +388,27 @@ history:
     that the supplied model digest is a binding rather than a correspondence proof, and keeps
     assumptions explicit. No owner read or independent referee review has occurred; tier stays
     E0 and the CLI/report gate remains closed.
+
+## RC-014
+
+statement: A proposed uniform-elbow-branch certificate family for a planar 2R
+  layout could establish, for all real link lengths in a rational tolerance box
+  and all target points in a finite union of rational closed discs, an exact
+  kinematic witness on one common branch meeting declared singularity and
+  actual-link clearance margins. This is a design objective, not a proved
+  sound reduction or a claim that any concrete instance satisfies it.
+tier: E0
+depends: []
+proof: docs/strategy/first-target.md and docs/strategy/modelling-choices.md
+  (planning sketches only). The base schema and the proposed O3 zero-offset
+  extension have different quantifier prefixes. Exact semialgebraic coverage,
+  algebraic IK witness construction, separator validity, checker soundness,
+  implementation correspondence, and model fidelity remain open. RC-002 and
+  RC-006 contain potentially reusable pointwise algebra and SOS utilities but
+  do not prove this claim; no dependency is asserted from mere reuse.
+target_checker: not yet implemented
+referee: none
+history:
+  - 2026-09-30 created E0 for the first-target proposal. RC-008 through RC-013
+    remain unused provisional names from the external assessment; no existing
+    claim or tier was changed.
