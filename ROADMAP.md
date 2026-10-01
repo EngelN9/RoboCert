@@ -1,6 +1,6 @@
 # RoboCert roadmap
 
-This is the current research plan as of 2026-09-24. A roadmap item is a proposal until its mathematical claim, implementation, and evidence satisfy the [research ledger](research/CLAIMS.md) and the [production checker obligations](docs/architecture/trusted-computing-base.md#future-certificate-family-obligation). Reordering or rewording this plan changes no evidence tier and adds no capability. The former phase-by-phase plan is preserved as [historical context](docs/archive/initial-phased-roadmap.md); its phase numbers are not current milestones.
+This is the current research plan, updated 2026-09-30. A roadmap item is a proposal until its mathematical claim, implementation, and evidence satisfy the [research ledger](research/CLAIMS.md) and the [production checker obligations](docs/architecture/trusted-computing-base.md#future-certificate-family-obligation). Reordering or rewording this plan changes no evidence tier and adds no capability. The former phase-by-phase plan is preserved as [historical context](docs/archive/initial-phased-roadmap.md); its phase numbers are not current milestones.
 
 ## Current baseline
 
@@ -13,11 +13,13 @@ Phase 0's functional core and packaging exist: formal claims, artifact hashes, r
 
 Formal proofs concern selected models and lemmas, with documented fidelity gaps.
 
-The [ledger](research/CLAIMS.md) is authoritative for claim identifiers and tiers: RC-001 E0, RC-002 E1, RC-003 EX, RC-004 E0, RC-005 E0, RC-006 E0, and RC-007 E0. The external assessment behind this revision gave RC-003 through RC-007 different meanings. **Those assignments are not adopted.** Its new proposals are named by description in the [strategy note](docs/strategy/revised-direction.md). A proposal receives an RC identifier only when someone writes its E0 ledger entry.
+The [ledger](research/CLAIMS.md) is authoritative for claim identifiers and tiers: RC-001 E0, RC-002 E1, RC-003 EX, RC-004 E0, RC-005 E0, RC-006 E0, RC-007 E0, and RC-014 E0. The external assessment behind this revision gave RC-003 through RC-007 different meanings. **Those assignments are not adopted.** Its RC-008 through RC-013 names remain provisional and unused. RC-014 records the [first-target proposal](docs/strategy/first-target.md), not a certificate or promotion.
 
 ## Ordered work, dependencies, and decision gates
 
 Each gate states what must hold before the next step, and when to stop or record a failure instead.
+
+The [first-target freeze](docs/strategy/revised-direction.md#2026-09-26-first-target-freeze) pauses G2 until the owner checkpoint. Its [kill test](docs/strategy/first-target.md#6-the-kill-test) is proposed E0 work under RC-014, not a substitute for G1 owner reads, fresh refereeing, or production-registration gates.
 
 **G0 — Documentation matches the ledger.**
 - Every document uses ledger IDs and tiers only as `research/CLAIMS.md` records them.

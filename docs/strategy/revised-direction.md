@@ -4,6 +4,21 @@ Date: 2026-09-24. This note records why the [roadmap](../../ROADMAP.md) was reor
 
 Literature cited here is limited to entries under `research/literature/`. The assessment cited further papers, vendor specifications, and standards. None of those has a verified literature entry, so they appear below only as unverified assertions of the assessment.
 
+## 2026-09-26 first-target freeze
+
+[`first-target.md`](first-target.md) is the source of truth for the first-target
+work and overrides conflicting roadmap material for that work. Until the owner
+makes the checkpoint decision in its §5 step 7:
+
+- do not start G2;
+- do not change RC-002 except for the smallest additions required by the
+  owner-approved kill test in §§5–6; and
+- keep the §5 step 6 side checks and step 7 checkpoint decision as separate,
+  owner-controlled tasks.
+
+This freeze is a planning constraint. It changes no evidence tier, registers no
+checker, and establishes no certification result.
+
 ## Positioning
 
 The assessment argued that RoboCert should not compete on how many degrees of freedom it can cover. Configuration-space region methods of the C-IRIS family (LIT-001) already use the same rational parametrization and scale further. RoboCert's distinctive aim is the combination of:
